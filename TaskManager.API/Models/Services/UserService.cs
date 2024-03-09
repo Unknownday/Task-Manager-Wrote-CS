@@ -165,5 +165,42 @@ namespace TaskManager.API.Models.Services
                 Console.WriteLine(ex.ToString());
             }
         }
+
+        public async Task<TokenResults> ValidateTokens(HttpRequest request)
+        {
+            string token = request.Headers["Authorization"].ToString();
+            using (var connection = GetOpenConnection())
+            {
+                string sqlCommandBase = "SELECT * FROM tokens WHERE accessToken = @Token";
+                using (var command = new NpgsqlCommand(sqlCommandBase, connection))
+                {
+                    command.Parameters.AddWithValue("@Token", token.Replace("Bearer ", ""));
+                    DateTime accessExpires = DateTime.Now;
+                    DateTime refreshExpires = DateTime.Now;
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (reader.Read())
+                        {
+                            accessExpires = DateTime.Parse(reader["accesstokenexpiresat"].ToString());
+                            refreshExpires = DateTime.Parse(reader["refreshtokenexpiresat"].ToString());
+                        }
+                    }
+                    TokenResults result = TokenResults.UnableToRead;
+                    if (accessExpires != null || refreshExpires != null )
+                    {
+                        result = TokenResults.Success;
+                        if (accessExpires < DateTime.Now) 
+                        {
+                            result = TokenResults.Expired;
+                        }
+                        if (refreshExpires < DateTime.Now)
+                        {
+                            result = TokenResults.NeedsRefresh;
+                        }
+                    }
+                    return result;
+                }
+            }
+        }
     }
 }
