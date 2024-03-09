@@ -36,7 +36,7 @@ namespace TaskManager.API.Models.Services
         /// </summary>
         /// <param name="request"></param>
         /// <returns>Кортеж с логин и паролем пользователя</returns>
-        public Task<Tuple<string, string>> GetUserLoginPassFromBasicAuth(HttpRequest request)
+        public Tuple<string, string> GetUserLoginPassFromBasicAuth(HttpRequest request)
         {
             string userLogin = "";
             string userPassword = "";
@@ -47,7 +47,7 @@ namespace TaskManager.API.Models.Services
             userPassword = namePassArray[1];
             
             Console.WriteLine($"{userLogin} {userPassword}");
-            return Task.FromResult(Tuple.Create(userLogin, userPassword));
+            return Tuple.Create(userLogin, userPassword);
         }
 
         static string DecodeBase64(string encodedString)
@@ -101,7 +101,7 @@ namespace TaskManager.API.Models.Services
         /// <param name="email"></param>
         /// <param name="password"></param>
         /// <returns></returns>
-        public async Task<ClaimsIdentity> GetIdentity(string email, string password)
+        public async Task<ClaimsIdentity?> GetIdentity(string email, string password)
         {
             UserModel currentUser = await GetUser(email, password);
 

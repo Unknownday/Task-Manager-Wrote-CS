@@ -65,7 +65,7 @@ namespace TaskManager.API.Controllers
                         command.Parameters.AddWithValue("@Email", userModel.Email);
                         using (var reader = await command.ExecuteReaderAsync())
                         {
-                            SafeUserModel user = null;
+                            SafeUserModel? user = null;
                             while (reader.Read())
                             {
                                 user = new SafeUserModel(

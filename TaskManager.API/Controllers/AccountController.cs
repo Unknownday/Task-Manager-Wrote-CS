@@ -46,7 +46,7 @@ namespace TaskManager.API.Controllers
         [HttpGet("info")]
         public async Task<IActionResult> GetCurrentUserInfo()
         {
-            string username = HttpContext.User.Identity.Name;
+            string? username = HttpContext.User.Identity.Name;
             using (var connection = GetOpenConnection())
             {
                 string sqlCommandBase = "SELECT * FROM users WHERE email = @Email";
@@ -55,7 +55,7 @@ namespace TaskManager.API.Controllers
                     command.Parameters.AddWithValue("@Email", username);
                     using (var reader = await command.ExecuteReaderAsync())
                     {
-                        SafeUserModel user = null;
+                        SafeUserModel? user = null;
                         while (reader.Read())
                         {
                             user = new SafeUserModel(
@@ -81,8 +81,8 @@ namespace TaskManager.API.Controllers
         public async Task<IActionResult> GetToken()
         {
             var userData = _userService.GetUserLoginPassFromBasicAuth(Request);
-            var login = userData.Result.Item1;
-            var pass = userData.Result.Item2;
+            var login = userData.Item1;
+            var pass = userData.Item2;
             var identity = _userService.GetIdentity(login, pass).Result;
 
             var jwt = new JwtSecurityToken(
@@ -114,46 +114,46 @@ namespace TaskManager.API.Controllers
             }
         }
 
-        public async Task RegisterToken(string tokem, string refreshToken, string Email)
-        {
-            using (var connection = GetOpenConnection())
-            {
-                string sqlCommandBase = "SELECT userId FROM tokens WHERE email = @Email";
-                using (var command = new NpgsqlCommand(sqlCommandBase, connection))
-                {
-                    command.Parameters.AddWithValue("@Email", Email);
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        while (reader.Read())
-                        {
-                            if (int.TryParse(reader["userid"].ToString(), out int userid))
-                            {
-                                sqlCommandBase = "UPDATE TABLE tokens SET userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
-                                using (var update = new NpgsqlCommand(sqlCommandBase, connection))
-                                {
-                                    update.Parameters.AddWithValue("@token", tokem);
-                                    update.Parameters.AddWithValue("@refreshToken", refreshToken);
-                                    update.Parameters.AddWithValue("@id", userid);
-                                    await command.ExecuteNonQueryAsync();
-                                }
-                            }
-                            else
-                            {
-                                sqlCommandBase = "INSERT INTO tokens(userId, email, userToken, refreshToken, ) VALUES(userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
-                                using (var update = new NpgsqlCommand(sqlCommandBase, connection))
-                                {
-                                    update.Parameters.AddWithValue("@token", tokem);
-                                    update.Parameters.AddWithValue("@refreshToken", refreshToken);
-                                    update.Parameters.AddWithValue("@id", userid);
-                                    await command.ExecuteNonQueryAsync();
-                                }
-                            }
-                        }
-                    }
-                }
+        //public async Task RegisterToken(string tokem, string refreshToken, string Email)
+        //{
+        //    using (var connection = GetOpenConnection())
+        //    {
+        //        string sqlCommandBase = "SELECT userId FROM tokens WHERE email = @Email";
+        //        using (var command = new NpgsqlCommand(sqlCommandBase, connection))
+        //        {
+        //            command.Parameters.AddWithValue("@Email", Email);
+        //            using (var reader = await command.ExecuteReaderAsync())
+        //            {
+        //                while (reader.Read())
+        //                {
+        //                    if (int.TryParse(reader["userid"].ToString(), out int userid))
+        //                    {
+        //                        sqlCommandBase = "UPDATE TABLE tokens SET userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
+        //                        using (var update = new NpgsqlCommand(sqlCommandBase, connection))
+        //                        {
+        //                            update.Parameters.AddWithValue("@token", tokem);
+        //                            update.Parameters.AddWithValue("@refreshToken", refreshToken);
+        //                            update.Parameters.AddWithValue("@id", userid);
+        //                            await command.ExecuteNonQueryAsync();
+        //                        }
+        //                    }
+        //                    else
+        //                    {
+        //                        sqlCommandBase = "INSERT INTO tokens(userId, email, userToken, refreshToken, ) VALUES(userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
+        //                        using (var update = new NpgsqlCommand(sqlCommandBase, connection))
+        //                        {
+        //                            update.Parameters.AddWithValue("@token", tokem);
+        //                            update.Parameters.AddWithValue("@refreshToken", refreshToken);
+        //                            update.Parameters.AddWithValue("@id", userid);
+        //                            await command.ExecuteNonQueryAsync();
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
                 
 
-            }
-        }
+        //    }
+        //}
     }
 }

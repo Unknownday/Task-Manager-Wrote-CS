@@ -6,7 +6,7 @@ namespace Common.Models
     /// <summary>
     /// "Безопасная" модель пользователя которая возращается на фронт-енд. Не содержит пароля
     /// </summary>
-    public class SafeUserModel
+    public class ShortUserModel
     {
         /// <summary>
         /// Уникальный идентификатор пользователя
@@ -48,7 +48,7 @@ namespace Common.Models
         /// </summary>
         public UserStatus Status { get; set; }
 
-        public SafeUserModel(string firstname, string lastname, string email, string phone, UserStatus status, int id)
+        public ShortUserModel(string firstname, string lastname, string email, string phone, UserStatus status, int id)
         {
             Id = id;
             FirstName = firstname;
