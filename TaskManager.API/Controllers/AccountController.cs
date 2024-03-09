@@ -55,10 +55,10 @@ namespace TaskManager.API.Controllers
                     command.Parameters.AddWithValue("@Email", username);
                     using (var reader = await command.ExecuteReaderAsync())
                     {
-                        SafeUserModel? user = null;
+                        ShortUserModel? user = null;
                         while (reader.Read())
                         {
-                            user = new SafeUserModel(
+                            user = new ShortUserModel(
                                 reader["FirstName"].ToString(),
                                 reader["LastName"].ToString(),
                                 reader["Email"].ToString(),
@@ -80,7 +80,7 @@ namespace TaskManager.API.Controllers
         [HttpPost("token")]
         public async Task<IActionResult> GetToken()
         {
-            var userData = _userService.GetUserLoginPassFromBasicAuth(Request);
+            var userData = await _userService.GetUserLoginPassFromBasicAuth(Request);
             var login = userData.Item1;
             var pass = userData.Item2;
             var identity = _userService.GetIdentity(login, pass).Result;
@@ -97,10 +97,53 @@ namespace TaskManager.API.Controllers
 
             var response = new
             {
-                acces_token = encodedJwt,
+                access_token = encodedJwt,
                 refresh_token = GenerateRefreshToken(encodedJwt.Length)
             };
 
+            using (var connection = GetOpenConnection())
+            {
+                string sqlCommandBase = "SELECT * FROM tokens WHERE email = @Email";
+                string email = "";
+                using (var command = new NpgsqlCommand(sqlCommandBase, connection))
+                {
+                    command.Parameters.AddWithValue("@Email", identity.Name.ToString());
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        
+                        while (reader.Read())
+                        {
+                            email = reader["email"].ToString();
+                        }
+                    }
+                    if (!email.IsNullOrEmpty())
+                    {
+                        Console.WriteLine("1");
+                        sqlCommandBase = "UPDATE tokens SET accessToken=@Token, refreshToken=@RefreshToken WHERE email=@Email";
+                        using (var update = new NpgsqlCommand(sqlCommandBase, connection))
+                        {
+                            update.Parameters.AddWithValue("@Token", response.access_token.ToString());
+                            update.Parameters.AddWithValue("@RefreshToken", response.refresh_token.ToString());
+                            update.Parameters.AddWithValue("@Email", identity.Name);
+                            await update.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("2");
+                        sqlCommandBase = "INSERT INTO tokens VALUES(@Token, @RefreshToken, @RefreshExpires, @AccessExpires, @Email)";
+                        using (var insert = new NpgsqlCommand(sqlCommandBase, connection))
+                        {
+                            insert.Parameters.AddWithValue("@Token", response.access_token.ToString());
+                            insert.Parameters.AddWithValue("@RefreshToken", response.refresh_token.ToString());
+                            insert.Parameters.AddWithValue("@Email", identity.Name);
+                            insert.Parameters.AddWithValue("@AccessExpires", DateTime.Now + TimeSpan.FromHours(2));
+                            insert.Parameters.AddWithValue("@RefreshExpires", DateTime.Now + TimeSpan.FromDays(3));
+                            await insert.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+            }
             return Ok(response);
         }
 
@@ -113,47 +156,5 @@ namespace TaskManager.API.Controllers
                 return Convert.ToBase64String(randomNumber);
             }
         }
-
-        //public async Task RegisterToken(string tokem, string refreshToken, string Email)
-        //{
-        //    using (var connection = GetOpenConnection())
-        //    {
-        //        string sqlCommandBase = "SELECT userId FROM tokens WHERE email = @Email";
-        //        using (var command = new NpgsqlCommand(sqlCommandBase, connection))
-        //        {
-        //            command.Parameters.AddWithValue("@Email", Email);
-        //            using (var reader = await command.ExecuteReaderAsync())
-        //            {
-        //                while (reader.Read())
-        //                {
-        //                    if (int.TryParse(reader["userid"].ToString(), out int userid))
-        //                    {
-        //                        sqlCommandBase = "UPDATE TABLE tokens SET userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
-        //                        using (var update = new NpgsqlCommand(sqlCommandBase, connection))
-        //                        {
-        //                            update.Parameters.AddWithValue("@token", tokem);
-        //                            update.Parameters.AddWithValue("@refreshToken", refreshToken);
-        //                            update.Parameters.AddWithValue("@id", userid);
-        //                            await command.ExecuteNonQueryAsync();
-        //                        }
-        //                    }
-        //                    else
-        //                    {
-        //                        sqlCommandBase = "INSERT INTO tokens(userId, email, userToken, refreshToken, ) VALUES(userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
-        //                        using (var update = new NpgsqlCommand(sqlCommandBase, connection))
-        //                        {
-        //                            update.Parameters.AddWithValue("@token", tokem);
-        //                            update.Parameters.AddWithValue("@refreshToken", refreshToken);
-        //                            update.Parameters.AddWithValue("@id", userid);
-        //                            await command.ExecuteNonQueryAsync();
-        //                        }
-        //                    }
-        //                }
-        //            }
-        //        }
-                
-
-        //    }
-        //}
     }
 }

@@ -36,7 +36,7 @@ namespace TaskManager.API.Models.Services
         /// </summary>
         /// <param name="request"></param>
         /// <returns>Кортеж с логин и паролем пользователя</returns>
-        public Tuple<string, string> GetUserLoginPassFromBasicAuth(HttpRequest request)
+        public async Task<Tuple<string, string>> GetUserLoginPassFromBasicAuth(HttpRequest request)
         {
             string userLogin = "";
             string userPassword = "";
@@ -144,7 +144,7 @@ namespace TaskManager.API.Models.Services
                         "password = @Password, " +
                         "phone = @Phone, " +
                         "status = @Status, " +
-                        "email = @Email, " +
+                        "email = @Email " +
                         "WHERE email = @Email;";
 
                     using (var command = new NpgsqlCommand(sql, connection))

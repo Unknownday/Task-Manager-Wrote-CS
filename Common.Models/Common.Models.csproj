@@ -90,7 +90,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="SafeUserModel.cs" />
+    <Compile Include="ShortUserModel.cs" />
     <Compile Include="UserModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UserStatus.cs" />

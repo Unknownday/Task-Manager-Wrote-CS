@@ -8,7 +8,6 @@ using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace TaskManager.API.Controllers
 {
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
@@ -65,10 +64,10 @@ namespace TaskManager.API.Controllers
                         command.Parameters.AddWithValue("@Email", userModel.Email);
                         using (var reader = await command.ExecuteReaderAsync())
                         {
-                            SafeUserModel? user = null;
+                            ShortUserModel? user = null;
                             while (reader.Read())
                             {
-                                user = new SafeUserModel(
+                                user = new ShortUserModel(
                                     reader["FirstName"].ToString(),
                                     reader["LastName"].ToString(),
                                     reader["Email"].ToString(),
@@ -130,10 +129,10 @@ namespace TaskManager.API.Controllers
                         command.Parameters.AddWithValue("@Email", userModel.Email);
                         using (var reader = await command.ExecuteReaderAsync())
                         {
-                            SafeUserModel user = null;
+                            ShortUserModel user = null;
                             while (reader.Read())
                             {
-                                user = new SafeUserModel(
+                                user = new ShortUserModel(
                                     reader["FirstName"].ToString(),
                                     reader["LastName"].ToString(),
                                     reader["Email"].ToString(),
@@ -203,10 +202,10 @@ namespace TaskManager.API.Controllers
                         command.Parameters.AddWithValue("@Id", id);
                         using (var reader = await command.ExecuteReaderAsync())
                         {
-                            List<SafeUserModel> users = new List<SafeUserModel>();
+                            List<ShortUserModel> users = new List<ShortUserModel>();
                             while (reader.Read())
                             {
-                                SafeUserModel user = new SafeUserModel(
+                                ShortUserModel user = new ShortUserModel(
                                     reader["FirstName"].ToString(),
                                     reader["LastName"].ToString(),
                                     reader["Email"].ToString(),
@@ -248,10 +247,10 @@ namespace TaskManager.API.Controllers
                         command.Parameters.AddWithValue("@Email", email);
                         using (var reader = await command.ExecuteReaderAsync())
                         {
-                            List<SafeUserModel> users = new List<SafeUserModel>();
+                            List<ShortUserModel> users = new List<ShortUserModel>();
                             while (reader.Read())
                             {
-                                SafeUserModel user = new SafeUserModel(
+                                ShortUserModel user = new ShortUserModel(
                                     reader["FirstName"].ToString(),
                                     reader["LastName"].ToString(),
                                     reader["Email"].ToString(),
