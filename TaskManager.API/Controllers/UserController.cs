@@ -4,11 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using TaskManager.Common.Models;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace TaskManager.API.Controllers
 {
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
@@ -119,7 +117,7 @@ namespace TaskManager.API.Controllers
                         command.Parameters.AddWithValue("@LastName", userModel.LastName);
                         command.Parameters.AddWithValue("@Password", userModel.Password);
                         command.Parameters.AddWithValue("@Phone", userModel.Phone);
-                        command.Parameters.AddWithValue("@Email", GetUserEmailByToken(Request));
+                        command.Parameters.AddWithValue("@Email", userModel.Email);
                         command.Parameters.AddWithValue("@Status", (int)userModel.Status);
                         await command.ExecuteNonQueryAsync();
                     }
@@ -272,29 +270,6 @@ namespace TaskManager.API.Controllers
                 // Логирование исключения
                 Console.WriteLine(ex.ToString());
                 return BadRequest();
-            }
-        }
-
-        private async Task<string> GetUserEmailByToken(HttpRequest request)
-        {
-            string token = request.Headers["Authorization"].ToString();
-            using (var connection = GetOpenConnection())
-            {
-                var sql = "SELECT * FROM tokens WHERE userToken=@Token";
-                using (var command = new NpgsqlCommand(sql, connection))
-                {
-                    command.Parameters.AddWithValue("@Token", token.Replace("Bearer ", ""));
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        string? email = null;
-                        while (reader.Read())
-                        {
-                            email = reader["Email"].ToString();
-                        }
-                        return email;
-                    }
-                    
-                }
             }
         }
     }

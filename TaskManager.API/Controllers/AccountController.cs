@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
 using TaskManager.API.Models;
 using TaskManager.API.Models.Services;
 using TaskManager.Common.Models;
@@ -98,62 +97,10 @@ namespace TaskManager.API.Controllers
             var response = new
             {
                 acces_token = encodedJwt,
-                refresh_token = GenerateRefreshToken(encodedJwt.Length)
+                usename = identity.Name
             };
 
             return Ok(response);
-        }
-
-        static string GenerateRefreshToken(int lenght)
-        {
-            byte[] randomNumber = new byte[lenght];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(randomNumber);
-                return Convert.ToBase64String(randomNumber);
-            }
-        }
-
-        public async Task RegisterToken(string tokem, string refreshToken, string Email)
-        {
-            using (var connection = GetOpenConnection())
-            {
-                string sqlCommandBase = "SELECT userId FROM tokens WHERE email = @Email";
-                using (var command = new NpgsqlCommand(sqlCommandBase, connection))
-                {
-                    command.Parameters.AddWithValue("@Email", Email);
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        while (reader.Read())
-                        {
-                            if (int.TryParse(reader["userid"].ToString(), out int userid))
-                            {
-                                sqlCommandBase = "UPDATE TABLE tokens SET userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
-                                using (var update = new NpgsqlCommand(sqlCommandBase, connection))
-                                {
-                                    update.Parameters.AddWithValue("@token", tokem);
-                                    update.Parameters.AddWithValue("@refreshToken", refreshToken);
-                                    update.Parameters.AddWithValue("@id", userid);
-                                    await command.ExecuteNonQueryAsync();
-                                }
-                            }
-                            else
-                            {
-                                sqlCommandBase = "INSERT INTO tokens(userId, email, userToken, refreshToken, ) VALUES(userToken=@token, refreshToken=@refreshToken WHERE userId=@id";
-                                using (var update = new NpgsqlCommand(sqlCommandBase, connection))
-                                {
-                                    update.Parameters.AddWithValue("@token", tokem);
-                                    update.Parameters.AddWithValue("@refreshToken", refreshToken);
-                                    update.Parameters.AddWithValue("@id", userid);
-                                    await command.ExecuteNonQueryAsync();
-                                }
-                            }
-                        }
-                    }
-                }
-                
-
-            }
         }
     }
 }
