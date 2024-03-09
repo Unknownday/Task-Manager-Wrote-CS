@@ -1,4 +1,5 @@
 ﻿using Common.Models;
+using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using Serilog;
 using System.Security.Claims;
@@ -110,8 +111,7 @@ namespace TaskManager.API.Models.Services
 
                 currentUser.LastLoginDate = DateTime.Now;
 
-                UserController userController = new UserController(_configuration);
-                await userController.UpdateUser(currentUser);
+                await UpdateUser(currentUser);
 
                 var claims = new List<Claim>
                 {
@@ -130,6 +130,40 @@ namespace TaskManager.API.Models.Services
             }
 
             return null;
+        }
+
+        public async Task UpdateUser(UserModel userModel)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "UPDATE Users " +
+                        "SET firstname = @FirstName, " +
+                        "lastname = @LastName, " +
+                        "password = @Password, " +
+                        "phone = @Phone, " +
+                        "status = @Status, " +
+                        "email = @Email, " +
+                        "WHERE email = @Email;";
+
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@FirstName", userModel.FirstName);
+                        command.Parameters.AddWithValue("@LastName", userModel.LastName);
+                        command.Parameters.AddWithValue("@Password", userModel.Password);
+                        command.Parameters.AddWithValue("@Phone", userModel.Phone);
+                        command.Parameters.AddWithValue("@Email", userModel.Email);
+                        command.Parameters.AddWithValue("@Status", (int)userModel.Status);
+                        await command.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Логирование исключения
+                Console.WriteLine(ex.ToString());
+            }
         }
     }
 }
