@@ -1,5 +1,6 @@
 ﻿using Common.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
@@ -18,11 +19,13 @@ namespace TaskManager.API.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly UserService _userService;
+        
 
         public AccountController(IConfiguration configuration)
         {
             _configuration = configuration;
             _userService = new UserService(configuration);
+            
         }
 
         /// <summary>

@@ -31,6 +31,7 @@ namespace TaskManager.API
                     ValidateIssuerSigningKey = true,
                 };
             });
+            services.AddHttpContextAccessor();
 
             services.AddControllers();
         }

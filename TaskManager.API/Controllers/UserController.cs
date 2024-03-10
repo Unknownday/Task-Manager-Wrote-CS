@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using TaskManager.API.Models;
+using TaskManager.API.Models.Services;
 using TaskManager.Common.Models;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
@@ -101,6 +103,15 @@ namespace TaskManager.API.Controllers
         {
             try
             {
+                var request = Request;
+                var userEmail = GetUserEmailByToken(request).Result;
+                switch (userEmail)
+                {
+                    case "TOKENSEXPIRED":
+                        return BadRequest("User tokens expired! Please re-authorize!");
+                    case "UNABLETOREADTOKEN":
+                        return NotFound("User with that token hasn't found!");
+                }
                 using (var connection = GetOpenConnection())
                 {
                     string sql = "UPDATE Users " +
@@ -109,16 +120,16 @@ namespace TaskManager.API.Controllers
                         "password = @Password, " +
                         "phone = @Phone, " +
                         "status = @Status, " +
-                        "email = @Email, " +
+                        "email = @NewEmail, " +
                         "WHERE email = @Email;";
-
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@FirstName", userModel.FirstName);
                         command.Parameters.AddWithValue("@LastName", userModel.LastName);
                         command.Parameters.AddWithValue("@Password", userModel.Password);
                         command.Parameters.AddWithValue("@Phone", userModel.Phone);
-                        command.Parameters.AddWithValue("@Email", GetUserEmailByToken(Request));
+                        command.Parameters.AddWithValue("@NewEmail", userModel.Email);
+                        command.Parameters.AddWithValue("@Email", userEmail);
                         command.Parameters.AddWithValue("@Status", (int)userModel.Status);
                         await command.ExecuteNonQueryAsync();
                     }
@@ -159,18 +170,37 @@ namespace TaskManager.API.Controllers
         /// </summary>
         /// <param name="id">Идентификатор пользователя для удаления.</param>
         /// <returns>Результат операции удаления.</returns>
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
+        [HttpDelete]
+        public async Task<IActionResult> DeleteUser()
         {
             try
             {
+                var request = Request;
+                var userEmail = GetUserEmailByToken(request).Result;
+                switch (userEmail)
+                {
+                    case "TOKENSEXPIRED":
+                        return BadRequest("User tokens expired! Please re-authorize!");
+                    case "UNABLETOREADTOKEN":
+                        return NotFound("User with that token hasn't found!");
+                }
+
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "DELETE FROM Users WHERE Id = @Id;";
+                    string sql = "DELETE FROM Users WHERE Email = @Email;";
 
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@Id", id);
+                        command.Parameters.AddWithValue("@Email", userEmail);
+
+                        await command.ExecuteNonQueryAsync();
+                    }
+                    sql = "DELETE FROM tokens WHERE Email = @Email;";
+
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@Email", userEmail);
+
                         await command.ExecuteNonQueryAsync();
                     }
                 }
@@ -184,67 +214,27 @@ namespace TaskManager.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Получение информации о пользователе по его идентификатору.
-        /// </summary>
-        /// <param name="id">Идентификатор пользователя.</param>
-        /// <returns>Информация о пользователе.</returns>
-        [HttpGet("GetUserById/{id}")]
-        public async Task<IActionResult> GetUser(int id)
+        [HttpGet]
+        public async Task<IActionResult> GetUser()
         {
             try
             {
-                using (var connection = GetOpenConnection())
+                var request = Request;
+                var userEmail = GetUserEmailByToken(request).Result;
+                switch (userEmail)
                 {
-                    string sql = "SELECT * FROM Users WHERE id = @Id";
-                    using (var command = new NpgsqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@Id", id);
-                        using (var reader = await command.ExecuteReaderAsync())
-                        {
-                            List<ShortUserModel> users = new List<ShortUserModel>();
-                            while (reader.Read())
-                            {
-                                ShortUserModel user = new ShortUserModel(
-                                    reader["FirstName"].ToString(),
-                                    reader["LastName"].ToString(),
-                                    reader["Email"].ToString(),
-                                    reader["Phone"].ToString(),
-                                    (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
-                                    Convert.ToInt32(reader["Id"])
-                                );
-
-                                users.Add(user);
-                            }
-                            return !users.IsNullOrEmpty() ? Ok(users) : NotFound();
-                        }
-                    }
+                    case "TOKENSEXPIRED":
+                        return BadRequest("User tokens expired! Please re-authorize!");
+                    case "UNABLETOREADTOKEN":
+                        return NotFound("User with that token hasn't found!");
                 }
-            }
-            catch (Exception ex)
-            {
-                // Логирование исключения
-                Console.WriteLine(ex.ToString());
-                return BadRequest();
-            }
-        }
-
-        /// <summary>
-        /// Получение информации о пользователе по его адресу электронной почты.
-        /// </summary>
-        /// <param name="email">Адрес электронной почты пользователя.</param>
-        /// <returns>Информация о пользователе.</returns>
-        [HttpGet("GetUserByEmail/{email}")]
-        public async Task<IActionResult> GetUser(string email)
-        {
-            try
-            {
                 using (var connection = GetOpenConnection())
                 {
                     string sql = "SELECT * FROM Users WHERE email=@Email";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@Email", email);
+                        command.Parameters.AddWithValue("@Email", userEmail);
+
                         using (var reader = await command.ExecuteReaderAsync())
                         {
                             List<ShortUserModel> users = new List<ShortUserModel>();
@@ -277,9 +267,20 @@ namespace TaskManager.API.Controllers
         private async Task<string> GetUserEmailByToken(HttpRequest request)
         {
             string token = request.Headers["Authorization"].ToString();
+            UserService service = new UserService(_configuration);
+            TokenResults result =  await service.ValidateTokens(request);
+            if(result == TokenResults.UnableToRead) 
+            {
+                return "UNABLETOREADTOKEN";
+            }
+            if(result == TokenResults.Expired)
+            {
+                return "TOKENSEXPIRED";
+            }
+
             using (var connection = GetOpenConnection())
             {
-                var sql = "SELECT * FROM tokens WHERE userToken=@Token";
+                var sql = "SELECT * FROM tokens WHERE accessToken=@Token";
                 using (var command = new NpgsqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@Token", token.Replace("Bearer ", ""));

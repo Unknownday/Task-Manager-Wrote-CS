@@ -5,6 +5,7 @@
         Success,
         NeedsRefresh,
         Expired,
-        UnableToRead
+        UnableToRead,
+        Validated
     }
 }

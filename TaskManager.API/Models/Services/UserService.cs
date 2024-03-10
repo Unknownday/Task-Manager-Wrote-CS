@@ -191,12 +191,31 @@ namespace TaskManager.API.Models.Services
                         result = TokenResults.Success;
                         if (accessExpires < DateTime.Now) 
                         {
-                            result = TokenResults.Expired;
+                            result = TokenResults.NeedsRefresh;
                         }
                         if (refreshExpires < DateTime.Now)
                         {
-                            result = TokenResults.NeedsRefresh;
+                            result = TokenResults.Expired;
                         }
+                    }
+                    switch (result)
+                    {
+                       case TokenResults.Success:
+                            break;
+                       case TokenResults.Expired:
+                            break;
+                       case TokenResults.NeedsRefresh:
+                            string sqlCommand = "UPDATE tokens SET acessTokenExpiresAt=@NewTime";
+                            using (var refresh = new NpgsqlCommand(sqlCommand, connection))
+                            {
+                                command.Parameters.AddWithValue("@NewTime", DateTime.Now + TimeSpan.FromHours(2));
+                                await command.ExecuteNonQueryAsync();
+                            }
+                            result = TokenResults.Validated;
+                            break;
+                       case TokenResults.UnableToRead:
+                            Console.WriteLine("Error while try to get tokens");
+                            break;
                     }
                     return result;
                 }
