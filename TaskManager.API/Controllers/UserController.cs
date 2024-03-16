@@ -16,9 +16,12 @@ namespace TaskManager.API.Controllers
     {
         private readonly IConfiguration _configuration;
 
+        private readonly UserService _userService;
+
         public UserController(IConfiguration configuration)
         {
             _configuration = configuration;
+            _userService = new UserService(configuration);
         }
 
         /// <summary>
@@ -103,15 +106,12 @@ namespace TaskManager.API.Controllers
         {
             try
             {
-                var request = Request;
-                var userEmail = GetUserEmailByToken(request).Result;
-                switch (userEmail)
+                (bool valid, int id) userId = _userService.TryGetId(Request).Result;
+                if (userId.valid == false)
                 {
-                    case "TOKENSEXPIRED":
-                        return BadRequest("User tokens expired! Please re-authorize!");
-                    case "UNABLETOREADTOKEN":
-                        return NotFound("User with that token hasn't found!");
+                    return BadRequest("User tokens expired! Please re-authorize!");
                 }
+
                 using (var connection = GetOpenConnection())
                 {
                     string sql = "UPDATE Users " +
@@ -121,7 +121,7 @@ namespace TaskManager.API.Controllers
                         "phone = @Phone, " +
                         "status = @Status, " +
                         "email = @NewEmail, " +
-                        "WHERE email = @Email;";
+                        "WHERE id = @Id;";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@FirstName", userModel.FirstName);
@@ -129,7 +129,7 @@ namespace TaskManager.API.Controllers
                         command.Parameters.AddWithValue("@Password", userModel.Password);
                         command.Parameters.AddWithValue("@Phone", userModel.Phone);
                         command.Parameters.AddWithValue("@NewEmail", userModel.Email);
-                        command.Parameters.AddWithValue("@Email", userEmail);
+                        command.Parameters.AddWithValue("@Id", userId.id);
                         command.Parameters.AddWithValue("@Status", (int)userModel.Status);
                         await command.ExecuteNonQueryAsync();
                     }
@@ -175,31 +175,27 @@ namespace TaskManager.API.Controllers
         {
             try
             {
-                var request = Request;
-                var userEmail = GetUserEmailByToken(request).Result;
-                switch (userEmail)
+                (bool valid, int id) userId = _userService.TryGetId(Request).Result;
+                if (userId.valid == false)
                 {
-                    case "TOKENSEXPIRED":
-                        return BadRequest("User tokens expired! Please re-authorize!");
-                    case "UNABLETOREADTOKEN":
-                        return NotFound("User with that token hasn't found!");
+                    return BadRequest("User tokens expired! Please re-authorize!");
                 }
 
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "DELETE FROM Users WHERE Email = @Email;";
+                    string sql = "DELETE FROM Users WHERE id = @Id;";
 
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@Email", userEmail);
+                        command.Parameters.AddWithValue("@Id", userId.id);
 
                         await command.ExecuteNonQueryAsync();
                     }
-                    sql = "DELETE FROM tokens WHERE Email = @Email;";
+                    sql = "DELETE FROM tokens WHERE id = @Id;";
 
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@Email", userEmail);
+                        command.Parameters.AddWithValue("@Id", userId.id);
 
                         await command.ExecuteNonQueryAsync();
                     }
@@ -219,21 +215,18 @@ namespace TaskManager.API.Controllers
         {
             try
             {
-                var request = Request;
-                var userEmail = GetUserEmailByToken(request).Result;
-                switch (userEmail)
+                (bool valid, int id) userId = _userService.TryGetId(Request).Result; 
+                if (userId.valid == false)
                 {
-                    case "TOKENSEXPIRED":
-                        return BadRequest("User tokens expired! Please re-authorize!");
-                    case "UNABLETOREADTOKEN":
-                        return NotFound("User with that token hasn't found!");
+                    return BadRequest("User tokens expired! Please re-authorize!");
                 }
+
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "SELECT * FROM Users WHERE email=@Email";
+                    string sql = "SELECT * FROM Users WHERE id=@Id";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@Email", userEmail);
+                        command.Parameters.AddWithValue("@Id", userId.id);
 
                         using (var reader = await command.ExecuteReaderAsync())
                         {
@@ -261,40 +254,6 @@ namespace TaskManager.API.Controllers
                 // Логирование исключения
                 Console.WriteLine(ex.ToString());
                 return BadRequest();
-            }
-        }
-
-        private async Task<string> GetUserEmailByToken(HttpRequest request)
-        {
-            string token = request.Headers["Authorization"].ToString();
-            UserService service = new UserService(_configuration);
-            TokenResults result =  await service.ValidateTokens(request);
-            if(result == TokenResults.UnableToRead) 
-            {
-                return "UNABLETOREADTOKEN";
-            }
-            if(result == TokenResults.Expired)
-            {
-                return "TOKENSEXPIRED";
-            }
-
-            using (var connection = GetOpenConnection())
-            {
-                var sql = "SELECT * FROM tokens WHERE accessToken=@Token";
-                using (var command = new NpgsqlCommand(sql, connection))
-                {
-                    command.Parameters.AddWithValue("@Token", token.Replace("Bearer ", ""));
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        string? email = null;
-                        while (reader.Read())
-                        {
-                            email = reader["Email"].ToString();
-                        }
-                        return email;
-                    }
-                    
-                }
             }
         }
     }

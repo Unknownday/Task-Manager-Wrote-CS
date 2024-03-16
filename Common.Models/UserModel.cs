@@ -52,6 +52,8 @@ namespace TaskManager.Common.Models
         /// </summary>
         public UserStatus Status { get; set; }
 
+        public UserModel() { }
+
         public UserModel(string firstname, string lastname, string email, string password, string phone, UserStatus status, int id)
         {
             Id = id;

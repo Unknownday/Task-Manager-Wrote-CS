@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using TaskManager.API.Models;
+using TaskManager.API.Models.Services;
 
 namespace TaskManager.API
 {
@@ -34,6 +35,8 @@ namespace TaskManager.API
             services.AddHttpContextAccessor();
 
             services.AddControllers();
+
+            services.AddScoped<UserService>();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
