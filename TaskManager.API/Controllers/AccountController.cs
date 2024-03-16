@@ -26,7 +26,7 @@ namespace TaskManager.API.Controllers
         public async Task<IActionResult> GetToken([FromBody] AuthorizationModel authorization)
         {
 
-            UserModel currentUser = await _userService.GetUser(authorization.Email, authorization.Password);
+            UserModel? currentUser = await _userService.GetUser(authorization.Email, authorization.Password);
 
             if (currentUser == null) { return NotFound("User not found"); }
 

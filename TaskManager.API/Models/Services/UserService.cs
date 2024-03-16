@@ -42,7 +42,7 @@ namespace TaskManager.API.Models.Services
         /// <param name="email"></param>
         /// <param name="password"></param>
         /// <returns>Безопасная модель пользователя</returns>
-        public async Task<UserModel> GetUser(string email, string password)
+        public async Task<UserModel?> GetUser(string email, string password)
         {
             using (var connection = GetOpenConnection())
             {
@@ -102,9 +102,9 @@ namespace TaskManager.API.Models.Services
         /// <param name="email"></param>
         /// <param name="password"></param>
         /// <returns></returns>
-        public async Task<Tuple<ClaimsIdentity, int>> GetIdentity(string email, string password)
+        public async Task<Tuple<ClaimsIdentity, int>?> GetIdentity(string email, string password)
         {
-            UserModel currentUser = await GetUser(email, password);
+            UserModel? currentUser = await GetUser(email, password);
 
             if (currentUser != null)
             {
@@ -222,27 +222,23 @@ namespace TaskManager.API.Models.Services
             try
             {
                 string accessToken = request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-                // Пытаемся валидировать токен
+
                 var principal = tokenHandler.ValidateToken(accessToken, validationParameters, out validatedToken);
 
-                // Извлекаем user_id из токена
                 var userIdClaim = principal.FindFirst("user_id");
                 if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
                 {
-                    return (false, -1); // Вернуть ошибку, если не удалось извлечь user_id
+                    return (false, -1);
                 }
 
-                // Проверяем, просрочен ли accessToken
                 if (validatedToken.ValidTo < DateTime.Now)
                 {
-                    // Просрочен, проверяем актуальность refreshToken
                     var existingToken = ConvertStringToToken(await GetRefreshTokenFromDatabase(userId));
                     if (existingToken == null || existingToken.ValidTo < DateTime.Now)
                     {
-                        return (false, -1); // Вернуть ошибку, если refreshToken не актуален
+                        return (false, -1);
                     }
 
-                    // Обновляем accessToken и refreshToken
                     var newAccessToken = GetAcessToken(userId);
                     var newRefreshToken = GetRefreshToken(userId);
 
@@ -251,12 +247,11 @@ namespace TaskManager.API.Models.Services
                     return (true, userId);
                 }
 
-                // Все в порядке, токен валидный и user_id успешно извлечен
                 return (true, userId);
             }
             catch (Exception)
             {
-                return (false, -1); // Вернуть ошибку в случае ошибки при валидации токена
+                return (false, -1);
             }
         }
 
@@ -274,12 +269,15 @@ namespace TaskManager.API.Models.Services
 
                         while (reader.Read())
                         {
-                            id = int.Parse(reader["userId"].ToString());
+                            if (int.TryParse(reader["userId"].ToString(), out userId))
+                            {
+                                id = userId; 
+                                break;
+                            }
                         }
                     }
                     if (id != -1)
                     {
-                        Console.WriteLine("1");
                         sqlCommandBase = "UPDATE tokens SET accessToken=@Token, refreshToken=@RefreshToken WHERE userId = @Id";
                         using (var update = new NpgsqlCommand(sqlCommandBase, connection))
                         {
@@ -304,10 +302,10 @@ namespace TaskManager.API.Models.Services
             }
         }
 
-        private static SecurityToken ConvertStringToToken(string tokenString)
+        private static SecurityToken ConvertStringToToken(string? tokenString)
         {
             JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
-            SecurityToken token = null;
+            SecurityToken token;
 
             tokenHandler.ValidateToken(tokenString, new TokenValidationParameters
             {

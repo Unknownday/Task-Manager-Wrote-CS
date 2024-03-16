@@ -5,10 +5,11 @@ namespace TaskManager.API.Models
 {
     public class AuthOptions
     {
-        public const string ISSUER = "MyAuthServer";
-        public const string AUDIENCE = "MyAuthClient";
+        public const string ISSUER = "Unknownday Task Manager";
+
+        public const string AUDIENCE = "Unknownday Task Manager";
+
         const string KEY = "SHA256 Mein super geheimer Schlüssel";
-        public const int LIFETIME = 2;
 
         /// <summary>
         /// Получение симетричного ключа
