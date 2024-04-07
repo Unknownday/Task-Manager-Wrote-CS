@@ -1,7 +1,6 @@
 ﻿using Common.Models;
 using Microsoft.AspNetCore.Mvc;
 using TaskManager.API.Models.Services;
-using TaskManager.Common.Models;
 using RouteAttribute = Microsoft.AspNetCore.Mvc.RouteAttribute; 
 
 namespace TaskManager.API.Controllers

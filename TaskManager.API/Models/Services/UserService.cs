@@ -1,21 +1,14 @@
-﻿using Azure;
-using Common.Models;
-using Microsoft.AspNetCore.Mvc;
+﻿using Common.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
-using Serilog;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Principal;
-using System.Text;
-using TaskManager.API.Controllers;
-using TaskManager.Common.Models;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using TaskManager.API.Models.Global;
 
 namespace TaskManager.API.Models.Services
 {
-    public class UserService
+    public class UserService : ICommonService<UserModel>
     {
         private readonly IConfiguration _configuration;
 
@@ -24,10 +17,6 @@ namespace TaskManager.API.Models.Services
             _configuration = configuration;
         }
 
-        /// <summary>
-        /// Создание соединения с базой данных
-        /// </summary>
-        /// <returns>Открытое соединение с базой данных</returns>
         private NpgsqlConnection GetOpenConnection()
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
@@ -36,12 +25,6 @@ namespace TaskManager.API.Models.Services
             return connection;
         }
 
-        /// <summary>
-        /// Получение информации о пользователе с указаным логином и паролем
-        /// </summary>
-        /// <param name="email"></param>
-        /// <param name="password"></param>
-        /// <returns>Безопасная модель пользователя</returns>
         public async Task<UserModel?> GetUser(string email, string password)
         {
             using (var connection = GetOpenConnection())
@@ -94,33 +77,6 @@ namespace TaskManager.API.Models.Services
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="email"></param>
-        /// <param name="password"></param>
-        /// <returns></returns>
-        public async Task<Tuple<ClaimsIdentity, int>?> GetIdentity(string email, string password)
-        {
-            UserModel? currentUser = await GetUser(email, password);
-
-            if (currentUser != null)
-            {
-                currentUser.LastLoginDate = DateTime.Now;
-
-                await UpdateUser(currentUser);
-
-                var claims = new[]
-                {
-                    new Claim("token_type", "access_token"),
-                    new Claim("user_id", currentUser.Id.ToString())
-                };
-
-                return new Tuple<ClaimsIdentity, int>(new ClaimsIdentity(claims), currentUser.Id);
-            }
-            return null;
         }
 
         public string GetAcessToken(int userId)
@@ -178,7 +134,8 @@ namespace TaskManager.API.Models.Services
                         "password = @Password, " +
                         "phone = @Phone, " +
                         "status = @Status, " +
-                        "email = @Email " +
+                        "email = @Email, " +
+                        "lastlogindate = @LoginDate " +
                         "WHERE email = @Email;";
 
                     using (var command = new NpgsqlCommand(sql, connection))
@@ -188,6 +145,7 @@ namespace TaskManager.API.Models.Services
                         command.Parameters.AddWithValue("@Password", userModel.Password);
                         command.Parameters.AddWithValue("@Phone", userModel.Phone);
                         command.Parameters.AddWithValue("@Email", userModel.Email);
+                        command.Parameters.AddWithValue("@LoginDate", userModel.LastLoginDate);
                         command.Parameters.AddWithValue("@Status", (int)userModel.Status);
                         await command.ExecuteNonQueryAsync();
                     }
@@ -320,6 +278,179 @@ namespace TaskManager.API.Models.Services
             }, out token);
 
             return token;
+        }
+
+        public ResultModel Create(UserModel model)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "INSERT INTO Users(firstname, lastname, email, password, phone, registrationdate, lastlogindate, status) " +
+                        "VALUES(@FirstName, @LastName, @Email, @Password, @Phone, @RegistrationDate, @LastLoginDate, @Status)";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@FirstName", model.FirstName);
+                        command.Parameters.AddWithValue("@LastName", model.LastName);
+                        command.Parameters.AddWithValue("@Email", model.Email);
+                        command.Parameters.AddWithValue("@Password", model.Password);
+                        command.Parameters.AddWithValue("@Phone", model.Phone);
+                        command.Parameters.AddWithValue("@RegistrationDate", DateTime.Now);
+                        command.Parameters.AddWithValue("@LastLoginDate", DateTime.Now);
+                        command.Parameters.AddWithValue("@Status", (int)model.Status);
+                        command.ExecuteNonQuery();
+                    }
+
+                    sql = "SELECT * FROM Users WHERE email=@Email";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@Email", model.Email);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            UserModel? user = null;
+                            while (reader.Read())
+                            {
+                                user = new UserModel(
+                                    reader["FirstName"].ToString(),
+                                    reader["LastName"].ToString(),
+                                    reader["Email"].ToString(),
+                                    reader["Phone"].ToString(),
+                                    reader["Password"].ToString(),
+                                    (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
+                                    Convert.ToInt32(reader["Id"])
+                                );
+                            }
+                            return new ResultModel(ResultStatus.Success, user);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
+        }
+
+        public ResultModel Update(int id, UserModel model)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "UPDATE Users " +
+                        "SET firstname = @FirstName, " +
+                        "lastname = @LastName, " +
+                        "password = @Password, " +
+                        "phone = @Phone, " +
+                        "status = @Status, " +
+                        "email = @NewEmail, " +
+                        "WHERE id = @Id;";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@FirstName", model.FirstName);
+                        command.Parameters.AddWithValue("@LastName", model.LastName);
+                        command.Parameters.AddWithValue("@Password", model.Password);
+                        command.Parameters.AddWithValue("@Phone", model.Phone);
+                        command.Parameters.AddWithValue("@NewEmail", model.Email);
+                        command.Parameters.AddWithValue("@Id", id);
+                        command.Parameters.AddWithValue("@Status", (int)model.Status);
+                        command.ExecuteNonQuery();
+                    }
+
+                    sql = "SELECT * FROM Users WHERE email=@Email";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@Email", model.Email);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            UserModel? user = null;
+                            while (reader.Read())
+                            {
+                                user = new UserModel(
+                                    reader["FirstName"].ToString(),
+                                    reader["LastName"].ToString(),
+                                    reader["Email"].ToString(),
+                                    reader["Phone"].ToString(),
+                                    reader["Password"].ToString(),
+                                    (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
+                                    Convert.ToInt32(reader["Id"])
+                                );
+                            }
+                            return new ResultModel(ResultStatus.Success, user);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
+        }
+
+        public ResultModel Delete(int id)
+        {
+            try
+            {
+
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "DELETE FROM Users WHERE id = @Id;";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+                return new ResultModel(ResultStatus.Success);
+            }
+            catch(Exception ex) 
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
+        }
+
+        public ResultModel Get(int id)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "SELECT * FROM Users WHERE id=@Id";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+
+                        using (var reader =command.ExecuteReader())
+                        {
+                            UserModel user = null;
+                            while (reader.Read())
+                            {
+                                if (reader != null) {
+                                    user = new UserModel(
+                                        reader["FirstName"].ToString(),
+                                        reader["LastName"].ToString(),
+                                        reader["Email"].ToString(),
+                                        reader["Phone"].ToString(),
+                                        reader["Password"].ToString(),
+                                        (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
+                                        id
+                                    );
+                                }
+                            }
+                            if (user == null)
+                            {
+                                return new ResultModel(ResultStatus.Error, "Can not found user with that token. Check out the token and try again!");
+                            }
+                            return new ResultModel(ResultStatus.Success, user);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
         }
     }
 }

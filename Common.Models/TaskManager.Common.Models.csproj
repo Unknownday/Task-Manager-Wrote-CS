@@ -90,15 +90,23 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AuthorizationModel.cs" />
-    <Compile Include="ShortUserModel.cs" />
-    <Compile Include="UserModel.cs" />
+    <Compile Include="Enums\ResultStatus.cs" />
+    <Compile Include="Models\AuthorizationModel.cs" />
+    <Compile Include="Models\CommonModel.cs" />
+    <Compile Include="Models\DeskModel.cs" />
+    <Compile Include="Models\ProjectItems.cs" />
+    <Compile Include="Models\ProjectModel.cs" />
+    <Compile Include="Enums\ProjectStatus.cs" />
+    <Compile Include="Models\ResultModel.cs" />
+    <Compile Include="Models\ShortUserModel.cs" />
+    <Compile Include="Models\TaskModel.cs" />
+    <Compile Include="Models\UserModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UserStatus.cs" />
+    <Compile Include="Enums\UserStatus.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
-    <None Include="packages.config" />
+    <None Include="Settings\app.config" />
+    <None Include="Settings\packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

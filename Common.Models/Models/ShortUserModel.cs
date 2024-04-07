@@ -1,5 +1,4 @@
 ﻿using System;
-using TaskManager.Common.Models;
 
 namespace Common.Models
 {
@@ -57,6 +56,17 @@ namespace Common.Models
             Phone = phone;
             RegistrationDate = DateTime.Now;
             Status = status;
+        }
+
+        public ShortUserModel(UserModel model) 
+        {
+            Id = model.Id;
+            FirstName = model.FirstName;
+            LastName = model.LastName;
+            Email = model.Email;
+            Phone = model.Phone;
+            RegistrationDate = model.RegistrationDate;
+            Status = model.Status;
         }
     }
 }

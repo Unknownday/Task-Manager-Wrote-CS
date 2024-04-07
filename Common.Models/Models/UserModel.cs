@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TaskManager.Common.Models
+namespace Common.Models
 {
     /// <summary>
     /// Небезопасная модель пользователя для использования на бэк-енд. Содержит пароль

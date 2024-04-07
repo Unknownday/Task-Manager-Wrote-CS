@@ -1,4 +1,4 @@
-﻿namespace TaskManager.Common.Models
+﻿namespace Common.Models
 {
     /// <summary>
     /// Список статусов пользователя

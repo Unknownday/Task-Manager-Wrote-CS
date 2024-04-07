@@ -35,8 +35,6 @@ namespace TaskManager.API
             services.AddHttpContextAccessor();
 
             services.AddControllers();
-
-            services.AddScoped<UserService>();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
