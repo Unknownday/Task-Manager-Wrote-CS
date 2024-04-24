@@ -10,7 +10,6 @@ namespace Common.Models
     {
         public string Message { get; set; } = null;
         public List<object> ResultArray { get; set; } = new List<object>();
-
         public object Result { get; set; }
         public ResultStatus Status { get; set; }
 

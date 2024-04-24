@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using TaskManager.API.Models.Services;
 using Common.Models;
-using Microsoft.Identity.Client;
 
 namespace TaskManager.API.Controllers
 {
@@ -11,12 +10,15 @@ namespace TaskManager.API.Controllers
     {
         private readonly ProjectService _projectService;
 
+        private readonly UserService _userService;
+
         public ProjectController(IConfiguration configuration)
         {
             _projectService = new ProjectService(configuration);
+            _userService = new UserService(configuration);
         }
 
-        [HttpGet("ById")]
+        [HttpGet]
         public IActionResult Get(int projectID) 
         { 
             if (projectID < 0 || projectID > int.MaxValue) return BadRequest("Project ID can not be less then 0 or more than max value");
@@ -40,9 +42,20 @@ namespace TaskManager.API.Controllers
             return Ok(getResult.Result);
         }
 
-        [HttpGet]
+        [HttpGet("Desks")]
         public IActionResult GetProjectDesks(int projectID) 
         {
+            (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
+
+            if (ownerId.valid == false)
+            {
+                return BadRequest("User tokens expired! Please re-authorize!");
+            }
+
+            bool isOwner = _projectService.IsOwner(ownerId.id, projectID);
+
+            if (isOwner == false) { return BadRequest("Access denied!"); }
+
             if (projectID < 0 || projectID > int.MaxValue) return BadRequest("Project ID can not be less then 0 or more than max value");
 
             var deskGetResult = _projectService.GetProjectDesks(projectID);
@@ -55,6 +68,17 @@ namespace TaskManager.API.Controllers
         [HttpDelete]
         public IActionResult Delete(int projectID)
         {
+            (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
+
+            if (ownerId.valid == false)
+            {
+                return BadRequest("User tokens expired! Please re-authorize!");
+            }
+
+            bool isOwner = _projectService.IsOwner(ownerId.id, projectID);
+
+            if (isOwner == false) { return BadRequest("Access denied!"); }
+
             var deleteResult = _projectService.Delete(projectID);
 
             if (deleteResult.Status == ResultStatus.Error) { return  NotFound(deleteResult.Message); }
@@ -65,11 +89,22 @@ namespace TaskManager.API.Controllers
         [HttpPatch]
         public IActionResult Patch([FromBody] ProjectModel model)
         {
+            (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
+
+            if (ownerId.valid == false)
+            {
+                return BadRequest("User tokens expired! Please re-authorize!");
+            }
+
+            bool isOwner = _projectService.IsOwner(ownerId.id, model.Id);
+
+            if (isOwner == false) { return BadRequest("Access denied!"); }
+
             if (model == null) return BadRequest("Project model can not be empty"); 
 
             if (model.Id < 0 || model.Id > int.MaxValue) return BadRequest("Project ID can not be less then 0 or more than max value");
 
-            var patchResult = _projectService.Update(model.Id, model);
+            var patchResult = _projectService.Patch(model.Id, model);
 
             if (patchResult.Status == ResultStatus.Error) return NotFound(patchResult.Message);
 
@@ -84,6 +119,58 @@ namespace TaskManager.API.Controllers
             if (createResult.Status == ResultStatus.Error) return BadRequest(createResult.Message);
 
             return Created("", createResult.Result);
+        }
+
+        [HttpPost("AddUserToProject")]
+        public IActionResult AddUserToProject(int userId, int projectId)
+        {
+            (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
+
+            if (ownerId.valid == false)
+            {
+                return BadRequest("User tokens expired! Please re-authorize!");
+            }
+
+            bool isOwner = _projectService.IsOwner(ownerId.id, projectId);
+
+            if (isOwner == false) { return BadRequest("Access denied!"); }
+
+            if (userId < 0 || userId > int.MaxValue) { return BadRequest($"userId can not be less than 0 or more then {int.MaxValue}"); }
+
+            if (projectId < 0 || projectId > int.MaxValue) { return BadRequest($"projectId can not be less than 0 or more then {int.MaxValue}"); }
+
+            var addUserResult = _projectService.AddUserToProject(userId, projectId);
+
+            if (addUserResult.Status == ResultStatus.Error) return BadRequest(addUserResult.Message);
+
+            return Ok();
+
+        }
+
+        [HttpPost("DeleteUserFromProject")]
+        public IActionResult DeleteUserFromProject(int userId, int projectId)
+        {
+            (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
+
+            if (ownerId.valid == false)
+            {
+                return BadRequest("User tokens expired! Please re-authorize!");
+            }
+
+            bool isOwner = _projectService.IsOwner(ownerId.id, projectId);
+
+            if (isOwner == false) { return BadRequest("Access denied!"); }
+
+            if (userId < 0 || userId > int.MaxValue) { return BadRequest($"userId can not be less than 0 or more then {int.MaxValue}"); }
+
+            if (projectId < 0 || projectId > int.MaxValue) { return BadRequest($"projectId can not be less than 0 or more then {int.MaxValue}"); }
+
+            var deleteUserResult = _projectService.DeleteUserFromProject(userId, projectId);
+
+            if (deleteUserResult.Status == ResultStatus.Error) return BadRequest(deleteUserResult.Message);
+
+            return Ok();
+
         }
     }
 }

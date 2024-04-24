@@ -29,7 +29,7 @@ namespace TaskManager.API.Models.Services
         {
             using (var connection = GetOpenConnection())
             {
-                string sqlCommandBase = "SELECT * FROM users WHERE email = @Email AND password = @Password";
+                string sqlCommandBase = "SELECT * FROM Users WHERE user_email = @Email AND user_password = @Password";
                 using (var command = new NpgsqlCommand(sqlCommandBase, connection))
                 {
                     command.Parameters.AddWithValue("@Email", email);
@@ -39,17 +39,22 @@ namespace TaskManager.API.Models.Services
                         UserModel user = new UserModel();
                         while (reader.Read())
                         {
-                            user = new UserModel(
-                                reader["FirstName"].ToString(),
-                                reader["LastName"].ToString(),
-                                reader["Email"].ToString(),
-                                reader["Password"].ToString(),
-                                reader["Phone"].ToString(),
-                                (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
-                                Convert.ToInt32(reader["Id"])
-                                
-                            );
-                            Console.WriteLine($"{user.FirstName}, {user.LastName}, {user.Email}, {user.Status}, {user.Id}, {user.Password}, {user.Phone}");
+                            user = new UserModel()
+                            {
+                                Id = reader.GetFieldValue<int>(reader.GetOrdinal("user_id")),
+                                FirstName = reader.GetFieldValue<string>(reader.GetOrdinal("user_firstname")),
+                                Surname = reader.GetFieldValue<string>(reader.GetOrdinal("user_surname")),
+                                Nickname = reader.GetFieldValue<string>(reader.GetOrdinal("user_nickname")),
+                                Email = reader.GetFieldValue<string>(reader.GetOrdinal("user_email")),
+                                Password = reader.GetFieldValue<string>(reader.GetOrdinal("user_password")),
+                                Phone = reader.GetFieldValue<string>(reader.GetOrdinal("user_phone")),
+                                Description = reader.GetFieldValue<string>(reader.GetOrdinal("user_profile_description")),
+                                Status = (UserStatus)Enum.ToObject(typeof(UserStatus), reader.GetFieldValue<int>(reader.GetOrdinal("user_status"))),
+                                RegistrationDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_registration_date")),
+                                LastLoginDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_last_login_date")),
+                                Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("user_profile_photo")),
+                            };
+                            Console.WriteLine($"{user.FirstName}, {user.Surname}, {user.Email}, {user.Status}, {user.Id}, {user.Password}, {user.Phone}");
                         }
                         if(user.Email.IsNullOrEmpty()) return null;
                         return user;
@@ -62,7 +67,7 @@ namespace TaskManager.API.Models.Services
         {
             using (var connection = GetOpenConnection())
             {
-                string sqlCommandBase = "SELECT refreshToken FROM tokens WHERE userId = @Id";
+                string sqlCommandBase = "SELECT user_refresh_token FROM Users WHERE user_id = @Id";
                 using (var command = new NpgsqlCommand(sqlCommandBase, connection))
                 {
                     command.Parameters.AddWithValue("@Id", userId);
@@ -71,7 +76,7 @@ namespace TaskManager.API.Models.Services
                         string? refreshToken = "";
                         while (reader.Read())
                         {
-                            refreshToken = reader["refreshToken"].ToString();
+                            refreshToken = reader["user_refresh_token"].ToString();
                         }
                         return refreshToken;
                     }
@@ -129,21 +134,28 @@ namespace TaskManager.API.Models.Services
                 using (var connection = GetOpenConnection())
                 {
                     string sql = "UPDATE Users " +
-                        "SET firstname = @FirstName, " +
-                        "lastname = @LastName, " +
-                        "password = @Password, " +
-                        "phone = @Phone, " +
-                        "status = @Status, " +
-                        "email = @Email, " +
-                        "lastlogindate = @LoginDate " +
-                        "WHERE email = @Email;";
+                        "SET user_firstname = @Firstname, " +
+                        "user_surname = @Surname, " +
+                        "user_nickname = @Nickname, " +
+                        "user_password = @Password, " +
+                        "user_phone = @Phone, " +
+                        "user_status = @Status, " +
+                        "user_email = @Email, " +
+                        "user_profile_photo = @Photo, " +
+                        "user_profile_description = @Description, " +
+                        "user_last_login_date = @LoginDate " +
+                        "WHERE user_email = @Email;";
 
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@FirstName", userModel.FirstName);
-                        command.Parameters.AddWithValue("@LastName", userModel.LastName);
-                        command.Parameters.AddWithValue("@Password", userModel.Password);
+                        command.Parameters.AddWithValue("@Firstname", userModel.FirstName);
+                        command.Parameters.AddWithValue("@Surname", userModel.Surname);
+                        command.Parameters.AddWithValue("@Nickname", userModel.Nickname);
                         command.Parameters.AddWithValue("@Phone", userModel.Phone);
+                        command.Parameters.AddWithValue("@Password", userModel.Password);
+                        command.Parameters.AddWithValue("@Email", userModel.Email);
+                        command.Parameters.Add("@Photo", NpgsqlTypes.NpgsqlDbType.Bytea).Value = userModel.Photo;
+                        command.Parameters.AddWithValue("@Description", userModel.Description);
                         command.Parameters.AddWithValue("@Email", userModel.Email);
                         command.Parameters.AddWithValue("@LoginDate", userModel.LastLoginDate);
                         command.Parameters.AddWithValue("@Status", (int)userModel.Status);
@@ -200,7 +212,7 @@ namespace TaskManager.API.Models.Services
                     var newAccessToken = GetAcessToken(userId);
                     var newRefreshToken = GetRefreshToken(userId);
 
-                    SaveTokens(userId, newAccessToken, newRefreshToken);
+                    SaveTokens(userId, newRefreshToken);
 
                     return (true, userId);
                 }
@@ -213,11 +225,11 @@ namespace TaskManager.API.Models.Services
             }
         }
 
-        public async void SaveTokens(int userId, string accessToken, string refreshToken)
+        public async void SaveTokens(int userId, string refreshtoken)
         {
             using (var connection = GetOpenConnection())
             {
-                string sqlCommandBase = "SELECT userId FROM tokens WHERE userId = @Id";
+                string sqlCommandBase = "SELECT user_id FROM Users WHERE user_id = @Id";
                 using (var command = new NpgsqlCommand(sqlCommandBase, connection))
                 {
                     int id = -1;
@@ -227,34 +239,19 @@ namespace TaskManager.API.Models.Services
 
                         while (reader.Read())
                         {
-                            if (int.TryParse(reader["userId"].ToString(), out userId))
+                            if (int.TryParse(reader["user_id"].ToString(), out userId))
                             {
                                 id = userId; 
                                 break;
                             }
                         }
                     }
-                    if (id != -1)
+                    sqlCommandBase = "UPDATE Users SET user_refresh_token = @Token WHERE user_id = @Id";
+                    using (var update = new NpgsqlCommand(sqlCommandBase, connection))
                     {
-                        sqlCommandBase = "UPDATE tokens SET accessToken=@Token, refreshToken=@RefreshToken WHERE userId = @Id";
-                        using (var update = new NpgsqlCommand(sqlCommandBase, connection))
-                        {
-                            update.Parameters.AddWithValue("@Token", accessToken);
-                            update.Parameters.AddWithValue("@RefreshToken", refreshToken);
-                            update.Parameters.AddWithValue("@Id", userId);
-                            await update.ExecuteNonQueryAsync();
-                        }
-                    }
-                    else
-                    {
-                        sqlCommandBase = "INSERT INTO tokens(accessToken, refreshToken, userId) VALUES(@Token, @RefreshToken, @Id)";
-                        using (var insert = new NpgsqlCommand(sqlCommandBase, connection))
-                        {
-                            insert.Parameters.AddWithValue("@Token", accessToken);
-                            insert.Parameters.AddWithValue("@RefreshToken", refreshToken);
-                            insert.Parameters.AddWithValue("@Id", userId);
-                            await insert.ExecuteNonQueryAsync();
-                        }
+                        update.Parameters.AddWithValue("@Token", refreshtoken);
+                        update.Parameters.AddWithValue("@Id", userId);
+                        await update.ExecuteNonQueryAsync();
                     }
                 }
             }
@@ -286,22 +283,25 @@ namespace TaskManager.API.Models.Services
             {
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "INSERT INTO Users(firstname, lastname, email, password, phone, registrationdate, lastlogindate, status) " +
-                        "VALUES(@FirstName, @LastName, @Email, @Password, @Phone, @RegistrationDate, @LastLoginDate, @Status)";
+                    string sql = "INSERT INTO Users (user_firstname, user_surname, user_nickname, user_profile_description, user_email, user_password, user_phone, user_registration_date, user_last_login_date, user_status, user_profile_photo) " +
+                        "VALUES (@Firstname, @Surname, @Nickname, @Description, @Email, @Password, @Phone, @RegistrationDate, @LastLoginDate, @Status, @Photo)";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@FirstName", model.FirstName);
-                        command.Parameters.AddWithValue("@LastName", model.LastName);
+                        command.Parameters.AddWithValue("@Firstname", model.FirstName);
+                        command.Parameters.AddWithValue("@Surname", model.Surname);
+                        command.Parameters.AddWithValue("@Nickname", model.Nickname);
+                        command.Parameters.AddWithValue("@Description", model.Description);
                         command.Parameters.AddWithValue("@Email", model.Email);
                         command.Parameters.AddWithValue("@Password", model.Password);
                         command.Parameters.AddWithValue("@Phone", model.Phone);
                         command.Parameters.AddWithValue("@RegistrationDate", DateTime.Now);
                         command.Parameters.AddWithValue("@LastLoginDate", DateTime.Now);
                         command.Parameters.AddWithValue("@Status", (int)model.Status);
+                        command.Parameters.Add("@Photo", NpgsqlTypes.NpgsqlDbType.Bytea).Value = model.Photo;
                         command.ExecuteNonQuery();
                     }
 
-                    sql = "SELECT * FROM Users WHERE email=@Email";
+                    sql = "SELECT * FROM Users WHERE user_email=@Email";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Email", model.Email);
@@ -310,15 +310,21 @@ namespace TaskManager.API.Models.Services
                             UserModel? user = null;
                             while (reader.Read())
                             {
-                                user = new UserModel(
-                                    reader["FirstName"].ToString(),
-                                    reader["LastName"].ToString(),
-                                    reader["Email"].ToString(),
-                                    reader["Phone"].ToString(),
-                                    reader["Password"].ToString(),
-                                    (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
-                                    Convert.ToInt32(reader["Id"])
-                                );
+                                user = new UserModel()
+                                {
+                                    Id = reader.GetFieldValue<int>(reader.GetOrdinal("user_id")),
+                                    FirstName = reader.GetFieldValue<string>(reader.GetOrdinal("user_firstname")),
+                                    Surname = reader.GetFieldValue<string>(reader.GetOrdinal("user_surname")),
+                                    Nickname = reader.GetFieldValue<string>(reader.GetOrdinal("user_nickname")),
+                                    Email = reader.GetFieldValue<string>(reader.GetOrdinal("user_email")),
+                                    Password = reader.GetFieldValue<string>(reader.GetOrdinal("user_password")),
+                                    Phone = reader.GetFieldValue<string>(reader.GetOrdinal("user_phone")),
+                                    Description = reader.GetFieldValue<string>(reader.GetOrdinal("user_profile_description")),
+                                    Status = (UserStatus)Enum.ToObject(typeof(UserStatus), reader.GetFieldValue<int>(reader.GetOrdinal("user_status"))),
+                                    RegistrationDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_registration_date")),
+                                    LastLoginDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_last_login_date")),
+                                    Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("user_profile_photo")),
+                                };
                             }
                             return new ResultModel(ResultStatus.Success, user);
                         }
@@ -331,33 +337,42 @@ namespace TaskManager.API.Models.Services
             }
         }
 
-        public ResultModel Update(int id, UserModel model)
+        public ResultModel Patch(int id, UserModel model)
         {
             try
             {
                 using (var connection = GetOpenConnection())
                 {
                     string sql = "UPDATE Users " +
-                        "SET firstname = @FirstName, " +
-                        "lastname = @LastName, " +
-                        "password = @Password, " +
-                        "phone = @Phone, " +
-                        "status = @Status, " +
-                        "email = @NewEmail, " +
-                        "WHERE id = @Id;";
+                     "SET user_firstname = @Firstname, " +
+                     "user_surname = @Surname, " +
+                     "user_nickname = @Nickname, " +
+                     "user_password = @Password, " +
+                     "user_phone = @Phone, " +
+                     "user_status = @Status, " +
+                     "user_email = @Email, " +
+                     "user_profile_photo = @Photo, " +
+                     "user_profile_description = @Description, " +
+                     "user_last_login_date = @LoginDate " +
+                     "WHERE user_email = @Email;";
+
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@FirstName", model.FirstName);
-                        command.Parameters.AddWithValue("@LastName", model.LastName);
-                        command.Parameters.AddWithValue("@Password", model.Password);
+                        command.Parameters.AddWithValue("@Firstname", model.FirstName);
+                        command.Parameters.AddWithValue("@Surname", model.Surname);
+                        command.Parameters.AddWithValue("@Nickname", model.Nickname);
                         command.Parameters.AddWithValue("@Phone", model.Phone);
-                        command.Parameters.AddWithValue("@NewEmail", model.Email);
-                        command.Parameters.AddWithValue("@Id", id);
+                        command.Parameters.AddWithValue("@Password", model.Password);
+                        command.Parameters.AddWithValue("@Email", model.Email);
+                        command.Parameters.Add("@Photo", NpgsqlTypes.NpgsqlDbType.Bytea).Value = model.Photo;
+                        command.Parameters.AddWithValue("@Description", model.Description);
+                        command.Parameters.AddWithValue("@Email", model.Email);
+                        command.Parameters.AddWithValue("@LoginDate", model.LastLoginDate);
                         command.Parameters.AddWithValue("@Status", (int)model.Status);
                         command.ExecuteNonQuery();
                     }
 
-                    sql = "SELECT * FROM Users WHERE email=@Email";
+                    sql = "SELECT * FROM Users WHERE user_email = @Email";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Email", model.Email);
@@ -366,15 +381,21 @@ namespace TaskManager.API.Models.Services
                             UserModel? user = null;
                             while (reader.Read())
                             {
-                                user = new UserModel(
-                                    reader["FirstName"].ToString(),
-                                    reader["LastName"].ToString(),
-                                    reader["Email"].ToString(),
-                                    reader["Phone"].ToString(),
-                                    reader["Password"].ToString(),
-                                    (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
-                                    Convert.ToInt32(reader["Id"])
-                                );
+                                user = new UserModel()
+                                {
+                                    Id = reader.GetFieldValue<int>(reader.GetOrdinal("user_id")),
+                                    FirstName = reader.GetFieldValue<string>(reader.GetOrdinal("user_firstname")),
+                                    Surname = reader.GetFieldValue<string>(reader.GetOrdinal("user_surname")),
+                                    Nickname = reader.GetFieldValue<string>(reader.GetOrdinal("user_nickname")),
+                                    Email = reader.GetFieldValue<string>(reader.GetOrdinal("user_email")),
+                                    Password = reader.GetFieldValue<string>(reader.GetOrdinal("user_password")),
+                                    Phone = reader.GetFieldValue<string>(reader.GetOrdinal("user_phone")),
+                                    Description = reader.GetFieldValue<string>(reader.GetOrdinal("user_profile_description")),
+                                    Status = (UserStatus)Enum.ToObject(typeof(UserStatus), reader.GetFieldValue<int>(reader.GetOrdinal("user_status"))),
+                                    RegistrationDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_registration_date")),
+                                    LastLoginDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_last_login_date")),
+                                    Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("user_profile_photo")),
+                                };
                             }
                             return new ResultModel(ResultStatus.Success, user);
                         }
@@ -394,7 +415,7 @@ namespace TaskManager.API.Models.Services
 
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "DELETE FROM Users WHERE id = @Id;";
+                    string sql = "DELETE FROM Users WHERE user_id = @Id;";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Id", id);
@@ -416,33 +437,42 @@ namespace TaskManager.API.Models.Services
             {
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "SELECT * FROM Users WHERE id=@Id";
+                    string sql = "SELECT * FROM Users WHERE user_id = @Id";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Id", id);
 
-                        using (var reader =command.ExecuteReader())
+                        using (var reader = command.ExecuteReader())
                         {
                             UserModel user = null;
                             while (reader.Read())
                             {
-                                if (reader != null) {
-                                    user = new UserModel(
-                                        reader["FirstName"].ToString(),
-                                        reader["LastName"].ToString(),
-                                        reader["Email"].ToString(),
-                                        reader["Phone"].ToString(),
-                                        reader["Password"].ToString(),
-                                        (UserStatus)Enum.ToObject(typeof(UserStatus), reader["Status"]),
-                                        id
-                                    );
+                                if (reader != null)
+                                {
+                                    user = new UserModel()
+                                    {
+                                        Id = reader.GetFieldValue<int>(reader.GetOrdinal("user_id")),
+                                        FirstName = reader.GetFieldValue<string>(reader.GetOrdinal("user_firstname")),
+                                        Surname = reader.GetFieldValue<string>(reader.GetOrdinal("user_surname")),
+                                        Nickname = reader.GetFieldValue<string>(reader.GetOrdinal("user_nickname")),
+                                        Email = reader.GetFieldValue<string>(reader.GetOrdinal("user_email")),
+                                        Password = reader.GetFieldValue<string>(reader.GetOrdinal("user_password")),
+                                        Phone = reader.GetFieldValue<string>(reader.GetOrdinal("user_phone")),
+                                        Description = reader.GetFieldValue<string>(reader.GetOrdinal("user_profile_description")),
+                                        Status = (UserStatus)Enum.ToObject(typeof(UserStatus), reader.GetFieldValue<int>(reader.GetOrdinal("user_status"))),
+                                        RegistrationDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_registration_date")),
+                                        LastLoginDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("user_last_login_date")),
+                                        Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("user_profile_photo")),
+                                    };
+                                    
                                 }
+                                if (user == null)
+                                {
+                                    return new ResultModel(ResultStatus.Error, "Can not found user with that token. Check out the token and try again!");
+                                }
+                                return new ResultModel(ResultStatus.Success, user);
                             }
-                            if (user == null)
-                            {
-                                return new ResultModel(ResultStatus.Error, "Can not found user with that token. Check out the token and try again!");
-                            }
-                            return new ResultModel(ResultStatus.Success, user);
+                            return new ResultModel(ResultStatus.Error);
                         }
                     }
                 }

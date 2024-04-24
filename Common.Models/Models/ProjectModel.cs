@@ -1,25 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace Common.Models
 {
     public class ProjectModel : CommonModel
     {
-        public int AdministratorId { get; set; }
-        public List<int> UserIds { get; set; }
-        public List<int> DeskIds { get; set; }
+        public int CreatorId { get; set; }
         public ProjectStatus Status { get; set; }
 
-        public ProjectModel() { }
+        public List<DeskModel> Desks { get; set; }
 
-        public ProjectModel(int adminId, string name, string description, DateTime creationDate, ProjectStatus status, byte[] photo = null) 
-        { 
-            AdministratorId = adminId;
-            Name = name;
-            Description = description;
-            CreationDate = creationDate;
-            Photo = photo;
-            Status = status;
+        public List<UserModel> Users { get; set; }
+
+        public ProjectModel() {
+            
         }
     }
 }

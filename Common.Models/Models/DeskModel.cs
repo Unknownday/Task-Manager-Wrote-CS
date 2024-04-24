@@ -9,18 +9,16 @@ namespace Common.Models
     public class DeskModel : CommonModel
     {
         public bool IsPublic { get; set; }
-        public List<string> Columns { get; set; }
-        public int ProjectId { get; set; }
-        public int AdminId { get; set; }
-        public List<int> TasksIds { get; set; }
+        public List<DeskColumnModel> Columns { get; set; }
+        public int AdministratorId { get; set; }
+        public List<TaskModel> Tasks { get; set; }
 
         public DeskModel() { }
 
-        public DeskModel(string name, int projectId, int administratorId, string description, bool isPrivate, byte[] photo = null, List<string> columns = null)
+        public DeskModel(string name, int administratorId, string description, bool isPrivate, byte[] photo = null, List<DeskColumnModel> columns = null)
         {
             Name = name;
-            ProjectId = projectId;
-            AdminId = administratorId;
+            AdministratorId = administratorId;
             Description = description;
             IsPublic = isPrivate;
             Photo = photo;

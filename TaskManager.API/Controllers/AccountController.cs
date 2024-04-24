@@ -43,7 +43,7 @@ namespace TaskManager.API.Controllers
                 refresh_token = refreshToken
             };
 
-            _userService.SaveTokens(currentUser.Id, accessToken, refreshToken);
+            _userService.SaveTokens(currentUser.Id, refreshToken);
 
             return Ok(response);
         }

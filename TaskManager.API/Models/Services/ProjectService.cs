@@ -30,19 +30,19 @@ namespace TaskManager.API.Models.Services
             {
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "INSERT INTO Project(ProjectName, Decription, Creationdate, Avatar, AdminId, Status) VALUES (@ProjectName, @Description, @CreationDate, @Photo, @AdminId, @Status)";
+                    string sql = "INSERT INTO Projects (project_name, project_description, project_creation_date, project_photo, project_creator_id, project_status) VALUES (@Name, @Description, @CreationDate, @Photo, @CreatorId, @Status)";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@ProjectName", model.Name);
+                        command.Parameters.AddWithValue("@Name", model.Name);
                         command.Parameters.AddWithValue("@Description", model.Description);
-                        command.Parameters.AddWithValue("@Photo", model.Photo);
-                        command.Parameters.AddWithValue("@AdminId", model.AdministratorId);
+                        command.Parameters.Add("@Photo", NpgsqlTypes.NpgsqlDbType.Bytea).Value = model.Photo;
+                        command.Parameters.AddWithValue("@CreatorId", model.CreatorId);
                         command.Parameters.AddWithValue("@CreationDate", DateTime.Now);
                         command.Parameters.AddWithValue("@Status", (int)model.Status);
                         command.ExecuteNonQuery();
                     }
 
-                    sql = "SELECT * FROM Project WHERE Id=MAX(ID)";
+                    sql = "SELECT * FROM Projects WHERE project_id = currval('project_id_seq')";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         using (var reader = command.ExecuteReader())
@@ -50,22 +50,25 @@ namespace TaskManager.API.Models.Services
                             ProjectModel? project = null;
                             while (reader.Read())
                             {
-                                project = new ProjectModel(
-                                    Convert.ToInt32(reader["AdminId"]),
-                                    reader["ProjectName"].ToString(),
-                                    reader["Desctiption"].ToString(),
-                                    DateTime.Parse(reader["Creationdate"].ToString()),
-                                    (ProjectStatus)Enum.ToObject(typeof(ProjectStatus), reader["Status"])
-                                );
+                                project = new ProjectModel()
+                                {
+                                    Id = reader.GetFieldValue<int>(reader.GetOrdinal("project_id")),
+                                    CreatorId = reader.GetFieldValue<int>(reader.GetOrdinal("project_creator_id")),
+                                    Name = reader.GetFieldValue<string>(reader.GetOrdinal("project_name")),
+                                    Description = reader.GetFieldValue<string>(reader.GetOrdinal("project_description")),
+                                    CreationDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("project_creation_date")),
+                                    Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("project_photo")),
+                                    Status = (ProjectStatus)Enum.ToObject(typeof(ProjectStatus), reader.GetFieldValue<int>(reader.GetOrdinal("project_status")))
+                                };
                             }
                             return new ResultModel(ResultStatus.Success, project);
                         }
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                return new ResultModel(ResultStatus.Error, "An error");
+                return new ResultModel(ResultStatus.Error, ex.Message);
             }
         }
 
@@ -75,7 +78,7 @@ namespace TaskManager.API.Models.Services
             {
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "DELETE FROM Project WHERE Id = @Id";
+                    string sql = "DELETE FROM Projects WHERE project_id = @Id";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Id", id);
@@ -99,7 +102,7 @@ namespace TaskManager.API.Models.Services
                 {
                     List<int> user_projects = new List<int>();
                     List<ProjectModel> projects = new List<ProjectModel>();
-                    string sql = "SELECT user_id FROM ProjectMember WHERE project_id = @Id";
+                    string sql = "SELECT user_id FROM ProjectMembers WHERE project_id = @Id";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Id", id);
@@ -108,12 +111,12 @@ namespace TaskManager.API.Models.Services
                         {
                             while (reader.Read())
                             {
-                                user_projects.Add(Convert.ToInt32(reader["user_id"].ToString()));
+                                user_projects.Add(reader.GetFieldValue<int>(reader.GetOrdinal("user_id")));
                             }
                         }
                     }
 
-                    sql = "SELECT * FROM project WHERE id = @PID";
+                    sql = "SELECT * FROM Projects WHERE project_id = @PID";
                     for (int i = 0; i < user_projects.Count(); i++)
                     {
                         using (var command = new NpgsqlCommand(sql, connection))
@@ -124,14 +127,16 @@ namespace TaskManager.API.Models.Services
                             {
                                 while (reader.Read())
                                 {
-                                    ProjectModel project = new ProjectModel(
-                                        Convert.ToInt32(reader["adminid"].ToString()),
-                                        reader["projectname"].ToString(),
-                                        reader["description"].ToString(),
-                                        DateTime.Parse(reader["creationdate"].ToString()),
-                                        (ProjectStatus)Enum.ToObject(typeof(UserStatus), Convert.ToUInt32(reader["Status"].ToString())),
-                                        (byte[])reader["avatar"]
-                                    );
+                                    ProjectModel project = new ProjectModel()
+                                    {
+                                        Id = reader.GetFieldValue<int>(reader.GetOrdinal("project_id")),
+                                        CreatorId = reader.GetFieldValue<int>(reader.GetOrdinal("project_creator_id")),
+                                        Name = reader.GetFieldValue<string>(reader.GetOrdinal("project_name")),
+                                        Description = reader.GetFieldValue<string>(reader.GetOrdinal("project_description")),
+                                        CreationDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("project_creation_date")),
+                                        Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("project_photo")),
+                                        Status = (ProjectStatus)Enum.ToObject(typeof(ProjectStatus), reader.GetFieldValue<int>(reader.GetOrdinal("project_status")))
+                                    };
                                     projects.Add(project);
                                 }
                             }
@@ -155,7 +160,7 @@ namespace TaskManager.API.Models.Services
                 {
                     List<int> project_desks = new List<int>();
                     List<DeskModel> desks = new List<DeskModel>();
-                    string sql = "SELECT desk_id FROM ProjectDesk WHERE project_id = @Id";
+                    string sql = "SELECT desk_id FROM ProjectDesks WHERE project_id = @Id";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Id", id);
@@ -164,7 +169,7 @@ namespace TaskManager.API.Models.Services
                         {
                             while (reader.Read())
                             {
-                                project_desks.Add(Convert.ToInt32(reader["desk_id"].ToString()));
+                                project_desks.Add(reader.GetFieldValue<int>(reader.GetOrdinal("desk_id")));
                             }
                         }
                     }
@@ -190,7 +195,7 @@ namespace TaskManager.API.Models.Services
             {
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "SELECT * FROM project WHERE id = @PID";
+                    string sql = "SELECT * FROM projects WHERE project_id = @PID";
                     ProjectModel project = new ProjectModel();
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
@@ -199,20 +204,16 @@ namespace TaskManager.API.Models.Services
                         {
                             while (reader.Read())
                             {
-                                var itemsGetResult = GetProjectItemsIds(id);
-                                if (itemsGetResult == null || itemsGetResult.Status == ResultStatus.Error) { return new ResultModel(ResultStatus.Error); }
-                                project = new ProjectModel(
-                                    Convert.ToInt32(reader["administratorid"].ToString()),
-                                    reader["projectname"].ToString(),
-                                    reader["description"].ToString(),
-                                    DateTime.Parse(reader["creationdate"].ToString()),
-                                    (ProjectStatus)Enum.ToObject(typeof(UserStatus), Convert.ToUInt32(reader["Status"].ToString())),
-                                    (byte[])reader["avatar"]
-                                ); 
-                                var items = (Tuple<List<int>, List<int>>)itemsGetResult.Result;
-                                project.DeskIds = items.Item1;
-                                project.UserIds = items.Item2;
-                                
+                                project = new ProjectModel()
+                                {
+                                    Id = reader.GetFieldValue<int>(reader.GetOrdinal("project_id")),
+                                    CreatorId = reader.GetFieldValue<int>(reader.GetOrdinal("project_creator_id")),
+                                    Name = reader.GetFieldValue<string>(reader.GetOrdinal("project_name")),
+                                    Description = reader.GetFieldValue<string>(reader.GetOrdinal("project_description")),
+                                    CreationDate = reader.GetFieldValue<DateTime>(reader.GetOrdinal("project_creation_date")),
+                                    Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("project_photo")),
+                                    Status = (ProjectStatus)Enum.ToObject(typeof(ProjectStatus), reader.GetFieldValue<int>(reader.GetOrdinal("project_status")))
+                                };
                             }
                         }
                     }
@@ -225,35 +226,35 @@ namespace TaskManager.API.Models.Services
             }
         }
 
-        public ResultModel Update(int id, ProjectModel model)
+        public ResultModel Patch(int id, ProjectModel model)
         {
             try
             {
                 using (var connection = GetOpenConnection())
                 {
-                    string sql = "UPDATE project " +
-                             "SET projectname = @ProjectName, " +
-                             "description = @Description, " +
-                             "avatar = @Photo, " +
-                             "status = @Status, " +
-                             "administratorid = @AdministratorId, " +
-                             "WHERE id = @Id;";
+                    string sql = "UPDATE Projects " +
+                             "SET project_name = @Name, " +
+                             "project_description = @Description, " +
+                             "project_photo = @Photo, " +
+                             "project_status = @Status, " +
+                             "project_creator_id = @AdministratorId, " +
+                             "WHERE project_id = @Id;";
+
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@ProjectName", model.Name);
+                        command.Parameters.AddWithValue("@Name", model.Name);
                         command.Parameters.AddWithValue("@Description", model.Description);
-                        command.Parameters.AddWithValue("@Photo", model.Photo);
-                        command.Parameters.AddWithValue("@AdministratorId", model.AdministratorId);
+                        command.Parameters.Add("@Photo", NpgsqlTypes.NpgsqlDbType.Bytea).Value = model.Photo;
+                        command.Parameters.AddWithValue("@AdministratorId", model.CreatorId);
                         command.Parameters.AddWithValue("@Status", (int)model.Status);
                         command.Parameters.AddWithValue("@Id", id);
                         command.ExecuteNonQuery();
                     }
                 }
                 var updatedProject = Get(id);
-                if (updatedProject.Result != null)
-                {
-                    return new ResultModel(ResultStatus.Success, updatedProject.Result);
-                }
+
+                if (updatedProject.Result != null) return new ResultModel(ResultStatus.Success, updatedProject.Result);  
+
                 return new ResultModel(ResultStatus.Error, "Unable to find project");
             }
             catch (Exception ex)
@@ -262,37 +263,108 @@ namespace TaskManager.API.Models.Services
             }
         }
 
-        private ResultModel GetProjectItemsIds(int projectId)
+        public ResultModel AddUserToProject(int userId, int projectId)
         {
             try
             {
                 using (var connection = GetOpenConnection())
                 {
-                    var desksIds = new List<int>();
-                    var usersIds = new List<int>();
-
-                    string sql = "SELECT desk_id, user_id FROM projectdesks JOIN projectmembers ON projectdesks.project_id = projectmembers.project_id WHERE projectdesks.project_id = @ProjectID;";
-
+                    string sql = "INSERT INTO ProjectMembers(user_id, project_id) VALUES (@UID, @PID)";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@PProjectIDrojectID", projectId);
+                        command.Parameters.AddWithValue("@UID", userId);
+                        command.Parameters.AddWithValue("PID", projectId);
+                        command.ExecuteNonQuery();
 
-                        using (var reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                desksIds.Add(int.Parse(reader["desk_id"].ToString()));
-                                usersIds.Add(int.Parse(reader["user_id"].ToString()));
-                            }
-                        }
                     }
-                    return new ResultModel(ResultStatus.Success, new Tuple<List<int>, List<int>>(desksIds, usersIds));
+                    return new ResultModel(ResultStatus.Success);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
+        }
+
+        public ResultModel DeleteUserFromProject(int userId, int projectId)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "DELETE FROM ProjectMembers WHERE user_id = @UID AND project_id = @PID)";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@UID", userId);
+                        command.Parameters.AddWithValue("PID", projectId);
+                        command.ExecuteNonQuery();
+
+                    }
+                    return new ResultModel(ResultStatus.Success);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
+        }
+
+        public ResultModel AddDeskToProject(int deskId, int projectId)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "INSERT INTO ProjectDesks(desk_id, project_id) VALUES (@DID, @PID)";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@DID", deskId);
+                        command.Parameters.AddWithValue("@PID", projectId);
+                        command.ExecuteNonQuery();
+
+                        return new ResultModel(ResultStatus.Success);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 return new ResultModel(ResultStatus.Error, ex.Message);
             }
+        }
+
+        public ResultModel DeletDeskFromProject(int deskId, int projectId)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "DELETE FROM ProjectDesks WHERE desk_id = @DID AND project_id = @PID";
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@DID", deskId);
+                        command.Parameters.AddWithValue("@PID", projectId);
+                        command.ExecuteNonQuery();
+
+                        return new ResultModel(ResultStatus.Success);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
+        }
+
+        public bool IsOwner(int userId, int projectId)
+        {
+            var project = Get(projectId).Result;
+
+            if (project == null) { return false; }
+
+            return ((ProjectModel)project).CreatorId == userId ? true : false;
+
         }
     }
 }

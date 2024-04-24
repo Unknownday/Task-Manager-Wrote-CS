@@ -31,12 +31,13 @@ namespace TaskManager.API.Controllers
         public IActionResult UpdateUser([FromBody] UserModel userModel)
         {
             (bool valid, int id) userId = _userService.TryGetId(Request).Result;
+
             if (userId.valid == false)
             {
                 return BadRequest("User tokens expired! Please re-authorize!");
             }
 
-            var result = _userService.Update(userId.id, userModel);
+            var result = _userService.Patch(userId.id, userModel);
 
             if (result.Message != null) return BadRequest(result.Message);
 
@@ -72,7 +73,7 @@ namespace TaskManager.API.Controllers
             }
             var result = _userService.Get(userId.id);
             if (result.Message != null) return NotFound(result.Message);            
-            return Ok(result.Result);
+            return Ok(new ShortUserModel((UserModel)result.Result));
         }
     }
 }

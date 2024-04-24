@@ -20,7 +20,11 @@ namespace Common.Models
         /// <summary>
         /// Фамилия пользователя
         /// </summary>
-        public string LastName { get; set; }
+        public string Surname { get; set; }
+
+        public string Nickname { get; set; }
+
+        public string Description { get; set; }
 
         /// <summary>
         /// Электронная почта пользователя
@@ -31,6 +35,8 @@ namespace Common.Models
         /// Номер телефона пользователя
         /// </summary>
         public string Phone { get; set; }
+
+        public byte[] Photo { get; set; } = new byte[0];
 
         /// <summary>
         /// Дата регистрации пользователя
@@ -51,7 +57,7 @@ namespace Common.Models
         {
             Id = id;
             FirstName = firstname;
-            LastName = lastname;
+            Surname = lastname;
             Email = email;
             Phone = phone;
             RegistrationDate = DateTime.Now;
@@ -62,7 +68,10 @@ namespace Common.Models
         {
             Id = model.Id;
             FirstName = model.FirstName;
-            LastName = model.LastName;
+            Surname = model.Surname;
+            Nickname = model.Nickname;
+            Description = model.Description;
+            Photo = model.Photo;
             Email = model.Email;
             Phone = model.Phone;
             RegistrationDate = model.RegistrationDate;
