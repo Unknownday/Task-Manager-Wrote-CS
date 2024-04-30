@@ -147,7 +147,7 @@ namespace TaskManager.API.Controllers
 
         }
 
-        [HttpPost("DeleteUserFromProject")]
+        [HttpDelete("DeleteUserFromProject")]
         public IActionResult DeleteUserFromProject(int userId, int projectId)
         {
             (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
@@ -171,6 +171,56 @@ namespace TaskManager.API.Controllers
 
             return Ok();
 
+        }
+
+        [HttpPost("AddDeskToProject")]
+        public IActionResult AddDeskToProject([FromBody] int projectId, int deskId)
+        {
+            (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
+
+            if (ownerId.valid == false)
+            {
+                return BadRequest("User tokens expired! Please re-authorize!");
+            }
+
+            bool isOwner = _projectService.IsOwner(ownerId.id, projectId);
+
+            if (isOwner == false) { return BadRequest("Access denied!"); }
+
+            if (deskId < 0 || deskId > int.MaxValue) { return BadRequest($"deskId can not be less than 0 or more then {int.MaxValue}"); }
+
+            if (projectId < 0 || projectId > int.MaxValue) { return BadRequest($"projectId can not be less than 0 or more then {int.MaxValue}"); }
+
+            var addUserResult = _projectService.AddDeskToProject(deskId, projectId);
+
+            if (addUserResult.Status == ResultStatus.Error) return BadRequest(addUserResult.Message);
+
+            return Ok();
+        }
+
+        [HttpDelete("DeleteDeskFromProject")]
+        public IActionResult DeleteDeskFromProject([FromBody]int projectId, int deskId) 
+        {
+            (bool valid, int id) ownerId = _userService.TryGetId(Request).Result;
+
+            if (ownerId.valid == false)
+            {
+                return BadRequest("User tokens expired! Please re-authorize!");
+            }
+
+            bool isOwner = _projectService.IsOwner(ownerId.id, projectId);
+
+            if (isOwner == false) { return BadRequest("Access denied!"); }
+
+            if (deskId < 0 || deskId > int.MaxValue) { return BadRequest($"deskId can not be less than 0 or more then {int.MaxValue}"); }
+
+            if (projectId < 0 || projectId > int.MaxValue) { return BadRequest($"projectId can not be less than 0 or more then {int.MaxValue}"); }
+
+            var deleteUserResult = _projectService.DeletDeskFromProject(deskId, projectId);
+
+            if (deleteUserResult.Status == ResultStatus.Error) return BadRequest(deleteUserResult.Message);
+
+            return Ok();
         }
     }
 }

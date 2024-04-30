@@ -16,6 +16,8 @@ namespace TaskManager.API.Models.Services
 
         private readonly DeskService _deskService = new DeskService(configuration);
 
+        private readonly UserService _userService = new UserService(configuration);
+
         private NpgsqlConnection GetOpenConnection()
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
@@ -102,7 +104,7 @@ namespace TaskManager.API.Models.Services
                 {
                     List<int> user_projects = new List<int>();
                     List<ProjectModel> projects = new List<ProjectModel>();
-                    string sql = "SELECT user_id FROM ProjectMembers WHERE project_id = @Id";
+                    string sql = "SELECT project_id FROM ProjectMembers WHERE user_id = @Id";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@Id", id);
@@ -111,7 +113,7 @@ namespace TaskManager.API.Models.Services
                         {
                             while (reader.Read())
                             {
-                                user_projects.Add(reader.GetFieldValue<int>(reader.GetOrdinal("user_id")));
+                                user_projects.Add(reader.GetFieldValue<int>(reader.GetOrdinal("project_id")));
                             }
                         }
                     }
@@ -152,43 +154,6 @@ namespace TaskManager.API.Models.Services
             }
         }
 
-        public ResultModel GetProjectDesks(int id)
-        {
-            try
-            {
-                using (var connection = GetOpenConnection())
-                {
-                    List<int> project_desks = new List<int>();
-                    List<DeskModel> desks = new List<DeskModel>();
-                    string sql = "SELECT desk_id FROM ProjectDesks WHERE project_id = @Id";
-                    using (var command = new NpgsqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@Id", id);
-
-                        using (var reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                project_desks.Add(reader.GetFieldValue<int>(reader.GetOrdinal("desk_id")));
-                            }
-                        }
-                    }
-
-                    sql = "SELECT * FROM desk WHERE id = @PID";
-                    for (int i = 0; i < project_desks.Count(); i++)
-                    {
-                        var deskGetResult = _deskService.Get(project_desks[i]);
-                        if (deskGetResult.Status == ResultStatus.Success) desks.Add((DeskModel)deskGetResult.Result);
-                    }
-                    return new ResultModel(ResultStatus.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                return new ResultModel(ResultStatus.Error, ex.Message);
-            }
-        }
-
         public ResultModel Get(int id)
         {
             try
@@ -214,6 +179,16 @@ namespace TaskManager.API.Models.Services
                                     Photo = reader.GetFieldValue<byte[]>(reader.GetOrdinal("project_photo")),
                                     Status = (ProjectStatus)Enum.ToObject(typeof(ProjectStatus), reader.GetFieldValue<int>(reader.GetOrdinal("project_status")))
                                 };
+
+                                var getDesksResult = GetProjectDesks(id);
+
+                                if (getDesksResult.Status != ResultStatus.Error) project.Desks = (List<DeskModel>)getDesksResult.Result;
+
+                                var getUsersResult = GetProjectMembers(id);
+
+                                if (getUsersResult.Status != ResultStatus.Error) project.Users = (List<ShortUserModel>)getUsersResult.Result;
+
+                                if (getUsersResult.Status == ResultStatus.Error) Console.WriteLine(getUsersResult.Message); 
                             }
                         }
                     }
@@ -365,6 +340,90 @@ namespace TaskManager.API.Models.Services
 
             return ((ProjectModel)project).CreatorId == userId ? true : false;
 
+        }
+
+        private ResultModel GetProjectMembers(int projectId)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "SELECT user_id FROM ProjectMembers WHERE project_id = @PID";
+                    List<int> users_ids = new List<int>();
+                    using (var command = new NpgsqlCommand(sql,connection))
+                    {
+                        command.Parameters.AddWithValue("@PID", projectId);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                users_ids.Add(reader.GetFieldValue<int>(reader.GetOrdinal("user_id")));
+                            }
+                        }
+                    }
+
+                    List<ShortUserModel> users = new List<ShortUserModel>();
+                    foreach (int user in users_ids)
+                    {
+                        var getUserResult = _userService.Get(user);
+
+                        Console.WriteLine(user);
+
+                        if (getUserResult == null) { continue; }
+
+                        if (getUserResult.Status == ResultStatus.Error) { continue; }
+
+                        users.Add(new ShortUserModel((UserModel)getUserResult.Result));
+                    }
+
+                    return new ResultModel(ResultStatus.Success, users);
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
+        }
+
+        public ResultModel GetProjectDesks(int projectId)
+        {
+            try
+            {
+                using (var connection = GetOpenConnection())
+                {
+                    string sql = "SELECT desk_id FROM ProjectDesks WHERE project_id = @PID";
+                    List<int> desk_ids = new List<int>();
+                    using (var command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@PID", projectId);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                desk_ids.Add(reader.GetFieldValue<int>(reader.GetOrdinal("user_id")));
+                            }
+                        }
+                    }
+
+                    List<DeskModel> desks = new List<DeskModel>();
+                    foreach (int desk in desk_ids)
+                    {
+                        var getUserResult = _deskService.Get(desk);
+
+                        if (getUserResult == null) { continue; }
+
+                        if (getUserResult.Status == ResultStatus.Error) { continue; }
+
+                        desks.Add((DeskModel)getUserResult.Result);
+                    }
+
+                    return new ResultModel(ResultStatus.Success, desks);
+                }
+            }
+            catch (Exception ex)
+            {
+                return new ResultModel(ResultStatus.Error, ex.Message);
+            }
         }
     }
 }

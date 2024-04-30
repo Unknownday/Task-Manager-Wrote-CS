@@ -10,3 +10,4 @@ namespace TaskManager.API.Models.Global
         ResultModel Get(int id);
     }
 }
+    

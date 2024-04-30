@@ -354,7 +354,7 @@ namespace TaskManager.API.Models.Services
                      "user_profile_photo = @Photo, " +
                      "user_profile_description = @Description, " +
                      "user_last_login_date = @LoginDate " +
-                     "WHERE user_email = @Email;";
+                     "WHERE user_id = @UID;";
 
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
@@ -369,13 +369,14 @@ namespace TaskManager.API.Models.Services
                         command.Parameters.AddWithValue("@Email", model.Email);
                         command.Parameters.AddWithValue("@LoginDate", model.LastLoginDate);
                         command.Parameters.AddWithValue("@Status", (int)model.Status);
+                        command.Parameters.AddWithValue("@UID", id);
                         command.ExecuteNonQuery();
                     }
 
-                    sql = "SELECT * FROM Users WHERE user_email = @Email";
+                    sql = "SELECT * FROM Users WHERE user_id = @UID";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
-                        command.Parameters.AddWithValue("@Email", model.Email);
+                        command.Parameters.AddWithValue("@UID", id);
                         using (var reader = command.ExecuteReader())
                         {
                             UserModel? user = null;

@@ -58,7 +58,7 @@ namespace TaskManager.API.Controllers
 
             var result = _userService.Delete(userId.id);
 
-            if (result.Message == null) return BadRequest(result.Message);
+            if (result.Message != null) return BadRequest(result.Message);
             return NoContent();
         }
 

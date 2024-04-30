@@ -11,7 +11,7 @@ namespace Common.Models
 
         public List<DeskModel> Desks { get; set; }
 
-        public List<UserModel> Users { get; set; }
+        public List<ShortUserModel> Users { get; set; }
 
         public ProjectModel() {
             

@@ -101,11 +101,6 @@ namespace TaskManager.API.Models.Services
             }
         }
 
-        /// <summary>
-        /// Getting task from database
-        /// </summary>
-        /// <param name="id"></param>
-        /// <returns>Succes: new object of type 'ResultModel' with TaskModel as result. Failure: new object of type 'ResultModel' with ERROR status and error message</returns>
         public ResultModel Get(int id)
         {
             try
