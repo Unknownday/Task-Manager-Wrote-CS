@@ -1,2 +1,2 @@
 # Task-Manager-Wrote-CS
- Task manager wrote in cs
+The corpative task manager wrote in C# with PostgreSQL database connection
